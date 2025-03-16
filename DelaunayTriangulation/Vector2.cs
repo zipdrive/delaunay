@@ -27,6 +27,19 @@ internal class Vector2<T> where T : IFloatingPointIeee754<T>
     /// </summary>
     public T Length => T.Sqrt(LengthSquared);
 
+	/// <summary>
+	/// Calculates the vector from the given start position to the given end position.
+	/// </summary>
+	/// <typeparam name="Vertex">A vertex type.</typeparam>
+	/// <param name="start">The start of the vector.</param>
+	/// <param name="end">The end of the vector.</param>
+	/// <returns>The vector from the given start position to the given end position.</returns>
+	public static Vector2<T> VectorDifference<Vertex>(Vertex start, Vertex end) where Vertex : IVertex2<T> => new Vector2<T>
+	{
+		X = end.X - start.X,
+		Y = end.Y - start.Y
+	};
+
     /// <summary>
     /// Adds the components of the vectors and returns the result.
     /// </summary>
