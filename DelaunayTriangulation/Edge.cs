@@ -47,6 +47,56 @@ internal class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex :
 	}
 
 	/// <summary>
+	/// Calculates the angle between two edges, connected at one vertex.
+	/// </summary>
+	/// <param name="other">The other edge.</param>
+	/// <returns>The counter-clockwise angle between the two vertices.</returns>
+	/// <exception cref="Exception">Thrown if the given edge is disconnected from this one.</exception>
+	public T GetAngularDifference(Edge<T, Vertex> other)
+	{
+		Vertex a, b1, b2;
+		if (other.Vertex1.Equals(Vertex1))
+		{
+			a = Vertex1;
+			b1 = Vertex2;
+			b2 = other.Vertex2;
+		}
+		else if (other.Vertex1.Equals(Vertex2))
+		{
+			a = Vertex2;
+			b1 = Vertex1;
+			b2 = other.Vertex2;
+		}
+		else if (other.Vertex2.Equals(Vertex1))
+		{
+			a = Vertex1;
+			b1 = Vertex2;
+			b2 = other.Vertex1;
+		}
+		else if (other.Vertex2.Equals(Vertex2))
+		{
+			a = Vertex2;
+			b1 = Vertex1;
+			b2 = other.Vertex1;
+		}
+		else
+		{
+			throw new ArgumentException("The edges are disconnected, so the angle between them cannot be calculated.");
+		}
+
+		Vector2<T> b1Vector = Vector;
+		if (b1.Equals(Vertex1))
+			b1Vector = -b1Vector;
+		Vector2<T> b2Vector = other.Vector;
+		if (b2.Equals(other.Vertex1))
+			b2Vector = -b2Vector;
+
+		T angle = T.Acos(b1Vector.Dot(b2Vector) / (b1Vector.Length + b2Vector.Length));
+		T sgn = b1Vector.X * b2Vector.Y - b1Vector.Y * b2Vector.X;
+		return sgn < Mesh<T, Vertex>.NumericTolerance ? T.Tau - angle : angle;
+	}
+
+	/// <summary>
 	/// Flips the order of vertices in the edge.
 	/// </summary>
 	public void Flip()

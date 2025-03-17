@@ -12,12 +12,12 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// The x-coordinate of the center of the circumcircle defined by these three vertices.
 	/// </summary>
-	private T CircumcircleCenterX;
+	public T CircumcircleCenterX;
 
 	/// <summary>
 	/// The y-coordiante of the center of the circumcircle defined by these three vertices.
 	/// </summary>
-	private T CircumcircleCenterY;
+	public T CircumcircleCenterY;
 
 	/// <summary>
 	/// The radius of the circumcircle defined by these three vertices, squared.
@@ -52,17 +52,56 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 		.Where(triangle => triangle != null && !triangle.Equals(this))
 		.Cast<Triangle<T, Vertex>>();
 
+	/// <summary>
+	/// Constructs a triangle from an edge and a third vertex.
+	/// </summary>
+	/// <param name="mesh">The existing triangulation.</param>
+	/// <param name="edge">The existing edge.</param>
+	/// <param name="vertex3">The third vertex of the triangle.</param>
 	internal Triangle(Mesh<T, Vertex> mesh, Edge<T, Vertex> edge, Vertex vertex3)
 	{
 		Edge1 = edge;
 		Edge2 = mesh.FindOrCreateEdge(edge.Vertex2, vertex3);
 		Edge3 = mesh.FindOrCreateEdge(vertex3, edge.Vertex1);
 
+		RecalculateCircumcircle(edge.Vertex1, edge.Vertex2, vertex3);
+	}
+
+	/// <summary>
+	/// Constructs a triangle from three vertices.
+	/// Flips the ordering of existing edges to ensure that the edges are in a counter-clockwise direction.
+	/// </summary>
+	/// <param name="mesh">The existing triangulation.</param>
+	/// <param name="vertex1">A vertex of the triangle.</param>
+	/// <param name="vertex2">A vertex of the triangle.</param>
+	/// <param name="vertex3">A vertex of the triangle.</param>
+	internal Triangle(Mesh<T, Vertex> mesh, Vertex vertex1, Vertex vertex2, Vertex vertex3)
+	{
+		Edge1 = mesh.FindOrCreateEdge(vertex1, vertex2);
+		if (Edge1.GetRighthandOffset(vertex3) > Mesh<T, Vertex>.NumericTolerance)
+			Edge1.Flip();
+		
+		Edge2 = mesh.FindOrCreateEdge(vertex2, vertex3);
+		if (!Edge2.Vertex1.Equals(Edge1.Vertex2))
+			Edge2.Flip();
+
+		Edge3 = mesh.FindOrCreateEdge(vertex3, vertex1);
+		if (!Edge3.Vertex1.Equals(Edge2.Vertex2))
+			Edge3.Flip();
+
+		RecalculateCircumcircle(vertex1, vertex2, vertex3);
+	}
+
+	/// <summary>
+	/// Calculates the circumcircle center and radius.
+	/// </summary>
+	public void RecalculateCircumcircle(Vertex vertex1, Vertex vertex2, Vertex vertex3)
+	{
 		// Calculate circumcircle
 		T two = T.CreateChecked(2);
-		Vector2<T> offset12 = Vector2<T>.VectorDifference(edge.Vertex1, edge.Vertex2);
-		Vector2<T> offset23 = Vector2<T>.VectorDifference(edge.Vertex2, vertex3);
-		Vector2<T> offset31 = Vector2<T>.VectorDifference(vertex3, edge.Vertex1);
+		Vector2<T> offset12 = Vector2<T>.VectorDifference(vertex1, vertex2);
+		Vector2<T> offset23 = Vector2<T>.VectorDifference(vertex2, vertex3);
+		Vector2<T> offset31 = Vector2<T>.VectorDifference(vertex3, vertex1);
 		T dR12 = offset12.Length;
 		T dR23 = offset23.Length;
 		T dR31 = offset31.Length;
@@ -73,8 +112,8 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 		T angle3 = T.Acos(-(offset23.X * offset31.X + offset23.Y * offset31.Y) / (dR23 + dR31));
 		T sin3 = T.Sin(two * angle3);
 		T normalizationConstant = T.One / (sin1 + sin2 + sin3);
-		CircumcircleCenterX = normalizationConstant * (edge.Vertex1.X * sin1 + edge.Vertex2.X * sin2 + vertex3.X * sin3);
-		CircumcircleCenterY = normalizationConstant * (edge.Vertex1.Y * sin1 + edge.Vertex2.Y * sin2 + vertex3.Y * sin3);
+		CircumcircleCenterX = normalizationConstant * (vertex1.X * sin1 + vertex2.X * sin2 + vertex3.X * sin3);
+		CircumcircleCenterY = normalizationConstant * (vertex1.Y * sin1 + vertex2.Y * sin2 + vertex3.Y * sin3);
 		CircumcircleRadiusSquared = T.Pow(CircumcircleCenterX - vertex3.X, two) + T.Pow(CircumcircleCenterY - vertex3.Y, two);
 	}
 

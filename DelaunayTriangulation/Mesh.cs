@@ -51,57 +51,99 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 		return _Edges.FirstOrDefault(edge => (edge.Vertex1.Equals(vertex1) && edge.Vertex2.Equals(vertex2)) || (edge.Vertex2.Equals(vertex1) && edge.Vertex1.Equals(vertex2))) ?? new Edge<T, Vertex> { Vertex1 = vertex1, Vertex2 = vertex2 };
 	}
 
-	#region
+	#region Initial construction
+
+	/// <summary>
+	/// Uses the divide-and-conquer approach to divide the vertices into increasingly-small subsets, then merging the resulting triangulations into the final mesh.
+	/// </summary>
+	/// <param name="vertices">The vertices of the mesh.</param>
+	/// <returns>A Delaunay triangulation of the vertices.</returns>
+	public static Mesh<T, Vertex> Construct(IEnumerable<Vertex> vertices)
+	{
+		List<Vertex> orderedVertices = new List<Vertex>(vertices);
+		orderedVertices.Sort((lhs, rhs) =>
+		{
+			if (lhs.X < rhs.X - NumericTolerance)
+				return -1;
+			else if (lhs.X > rhs.X + NumericTolerance)
+				return 1;
+			else if (lhs.Y < rhs.Y - NumericTolerance)
+				return -1;
+			else if (lhs.Y > rhs.Y + NumericTolerance)
+				return 1;
+			else
+				return 0;
+		});
+
+		return _ConstructHelper(orderedVertices);
+	}
+
+	/// <summary>
+	/// Recursive helper function to subdivide the graph into two regions, then merge the resulting triangulations.
+	/// </summary>
+	/// <param name="vertices">The vertices of the graph.</param>
+	/// <returns>The Delaunay triangulation of those vertices.</returns>
+	private static Mesh<T, Vertex> _ConstructHelper(IEnumerable<Vertex> vertices)
+	{
+		int verticesCount = vertices.Count();
+		if (verticesCount > 3)
+		{
+			Mesh<T, Vertex> mesh1 = _ConstructHelper(vertices.Take(verticesCount / 2));
+			Mesh<T, Vertex> mesh2 = _ConstructHelper(vertices.Skip(verticesCount / 2));
+			mesh1._Merge(mesh2);
+			return mesh1;
+		}
+		else
+		{
+			return new Mesh<T, Vertex>(vertices);
+		}
+	}
+
+	/// <summary>
+	/// Constructs a mesh with a single vertex.
+	/// </summary>
+	/// <param name="vertex">The only vertex in the mesh.</param>
+	internal Mesh(Vertex vertex)
+	{
+		_Vertices = new HashSet<Vertex> { vertex };
+		_Edges = new HashSet<Edge<T, Vertex>>();
+		_Triangles = new HashSet<Triangle<T, Vertex>>();
+		_ConvexHull = new List<Edge<T, Vertex>>();
+	}
 
 	/// <summary>
 	/// Constructs a Delaunay triangulation of the given vertices.
 	/// </summary>
 	/// <param name="vertices">The vertices of a graph.</param>
-	/// <exception cref="ArgumentException">Thrown if less than 3 vertices are passed in to the constructor.</exception>
-	public Mesh(IEnumerable<Vertex> vertices)
+	/// <exception cref="ArgumentException">Thrown if more than 3 vertices are passed in to the constructor.</exception>
+	internal Mesh(IEnumerable<Vertex> vertices)
 	{
-		if (vertices.Count() < 3)
-			throw new ArgumentException("Less than 3 vertices were enumerated.");
+		if (vertices.Count() > 3)
+			throw new ArgumentException("More than 3 vertices passed to Mesh constructor.");
 
-		// Construct the convex hull
-		_ConstructConvexHull(vertices);
-
-		// Construct Delaunay triangulation of convex hull
-		List<Edge<T, Vertex>> baseEdgeQueue = new List<Edge<T, Vertex>>
+		// Initial vertices
+		_Vertices = new HashSet<Vertex>(vertices);
+		
+		// Initial edges
+		foreach (Vertex vertex1 in vertices)
 		{
-			_Edges.First()
-		};
-		while (baseEdgeQueue.Count > 0)
-		{
-			Edge<T, Vertex> baseEdge = baseEdgeQueue[0];
-			baseEdgeQueue.RemoveAt(0);
-
-			foreach (Vertex vertex in _Vertices)
+			foreach (Vertex vertex2 in vertices.TakeWhile(v => !v.Equals(vertex1)))
 			{
-				if (vertex.Equals(baseEdge.Vertex1) || vertex.Equals(baseEdge.Vertex2))
-					continue;
-
-				Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(this, baseEdge, vertex);
-				if (!_Vertices.Except(triangle.Vertices).Any(v => triangle.IsInsideCircumcircle(v)))
+				_Edges.Add(new Edge<T, Vertex> { Vertex1 = vertex1, Vertex2 = vertex2 });
+				
+				// Initial triangles
+				foreach (Vertex vertex3 in vertices.TakeWhile(v => !v.Equals(vertex2)))
 				{
-					_Triangles.Add(triangle);
-					IEnumerable<Edge<T, Vertex>> newEdges = triangle.Edges.Except(_Edges);
-					baseEdgeQueue.AddRange(newEdges);
-					_Edges.UnionWith(newEdges);
-					triangle.UpdateAdjacentEdges();
-					break;
+					_Triangles.Add(new Triangle<T, Vertex>(this, vertex1, vertex2, vertex3));
 				}
 			}
 		}
 
-		// Insert the remaining vertices
-		foreach (Vertex vertex in vertices.Except(_Vertices))
-		{
-			_AddInsideConvexHull(vertex);
-		}
+		// Initial convex hull
+		_ConvexHull = new List<Edge<T, Vertex>>(_Edges);
 	}
 
-	#endregion
+	#endregion Initial construction
 
 	#region Convex hull
 
@@ -110,18 +152,18 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// </summary>
 	/// <param name="vertices">All vertices that will eventually be part of the mesh.</param>
 	/// <exception cref="ArgumentException">Thrown if vertices does not enumerate any vertices.</exception>
-	private void _ConstructConvexHull(IEnumerable<Vertex> vertices)
+	private void _ConstructConvexHull()
 	{
-		if (!vertices.Any())
-			throw new ArgumentException("No vertices.");
 		_ConvexHull = new List<Edge<T, Vertex>>();
+		if (_Vertices.Count < 3)
+			return;
 
 		// Construct set of initial vertices
-		(Vertex, T) minA = (vertices.First(), vertices.First().X + vertices.First().Y);
-		(Vertex, T) maxA = (vertices.First(), vertices.First().X + vertices.First().Y);
-		(Vertex, T) minB = (vertices.First(), vertices.First().X - vertices.First().Y);
-		(Vertex, T) maxB = (vertices.First(), vertices.First().X - vertices.First().Y);
-		foreach (Vertex vertex in vertices.Skip(1))
+		(Vertex, T) minA = (_Vertices.First(), _Vertices.First().X + _Vertices.First().Y);
+		(Vertex, T) maxA = (_Vertices.First(), _Vertices.First().X + _Vertices.First().Y);
+		(Vertex, T) minB = (_Vertices.First(), _Vertices.First().X - _Vertices.First().Y);
+		(Vertex, T) maxB = (_Vertices.First(), _Vertices.First().X - _Vertices.First().Y);
+		foreach (Vertex vertex in _Vertices.Skip(1))
 		{
 			T a = vertex.X + vertex.Y;
 			T b = vertex.X - vertex.Y;
@@ -144,12 +186,15 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 			{
 				Vertex vertex1 = initialVertices[k];
 				Vertex vertex2 = initialVertices[(k + 1) % initialVertices.Count];
+				
 				Edge<T, Vertex> edge = FindOrCreateEdge(vertex1, vertex2);
+				if (!edge.Vertex1.Equals(vertex1))
+					edge.Flip();
+
 				_ConvexHull.Add(edge);
-				_ConstructConvexHullHelper(vertices.Except(_Vertices));
+				_ConstructConvexHullHelper(_Vertices.Except(initialVertices));
 			}
 		}
-		_Edges.UnionWith(_ConvexHull);
 	}
 
 	/// <summary>
@@ -193,16 +238,16 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 
 			// Add the candidate vertex
 			Vertex vertex = bestCandidate.Value.Item1;
-			_Vertices.Add(vertex);
+			IEnumerable<Vertex> remainingVertices = vertices.Where(v => !v.Equals(vertex));
 
 			// Add two edges from each endpoint to the new vertex
 			Edge<T, Vertex> edge1 = FindOrCreateEdge(edge.Vertex1, vertex);
 			_ConvexHull.Add(edge1);
-			_ConstructConvexHullHelper(vertices.Except(_Vertices));
+			_ConstructConvexHullHelper(remainingVertices);
 
 			Edge<T, Vertex> edge2 = FindOrCreateEdge(vertex, edge.Vertex2);
 			_ConvexHull.Add(edge2);
-			_ConstructConvexHullHelper(vertices.Except(_Vertices));
+			_ConstructConvexHullHelper(remainingVertices);
 		}
 	}
 
@@ -215,13 +260,20 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// -1 if the vertex is outside the convex hull.</returns>
 	public int IsInsideConvexHull(Vertex vertex)
 	{
-		List<T> offsets = new List<T>(_ConvexHull.Select(edge => edge.GetRighthandOffset(vertex)));
-		if (offsets.Any(offset => offset > NumericTolerance))
-			return 1;
-		else if (offsets.All(offset => offset < -NumericTolerance))
-			return -1;
-		else
-			return 0;
+		foreach (Edge<T, Vertex> edge in _ConvexHull)
+		{
+			T offset = edge.GetRighthandOffset(vertex);
+			if (offset > NumericTolerance)
+				return -1;
+			else if (offset >= -NumericTolerance)
+			{
+				Vector2<T> edgeVector = edge.Vector;
+				T edgeVectorDot = edgeVector.Dot(Vector2<T>.VectorDifference(vertex, edge.Vertex1));
+				if (edgeVectorDot >= -NumericTolerance && edgeVectorDot <= edgeVector.LengthSquared + NumericTolerance)
+					return 0;
+			}
+		}
+		return 1;
 	}
 
 	#endregion Convex hull
@@ -234,7 +286,52 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="vertex">A vertex which is known to exist strictly inside the convex hull.</param>
 	private void _AddInsideConvexHull(Vertex vertex)
 	{
+		#region Construct influence triangulation
+		HashSet<Triangle<T, Vertex>> influenceTriangulation = new HashSet<Triangle<T, Vertex>>();
+		
+		// Iterate over all triangles to see which triangles contain the vertex in circumcenter
+		foreach (Triangle<T, Vertex> triangle in _Triangles)
+		{
+			if (triangle.IsInsideCircumcircle(vertex))
+			{
+				HashSet<Triangle<T, Vertex>> suspects = new HashSet<Triangle<T, Vertex>> { triangle };
+				HashSet<Triangle<T, Vertex>> clearedSuspects = new HashSet<Triangle<T, Vertex>>();
+				while (suspects.Count > 0)
+				{
+					Triangle<T, Vertex> suspectedTriangle = suspects.First();
+					suspects.Remove(suspectedTriangle);
+					if (influenceTriangulation.Contains(suspectedTriangle) || clearedSuspects.Contains(suspectedTriangle))
+						continue;
 
+					if (suspectedTriangle.IsInsideCircumcircle(vertex))
+					{
+						influenceTriangulation.Add(suspectedTriangle);
+						suspects.UnionWith(suspectedTriangle.AdjacentTriangles);
+					}
+					else
+					{
+						clearedSuspects.Add(suspectedTriangle);
+					}
+				}
+				break;
+			}
+		}
+		#endregion Construct influence triangulation
+
+		// Remove all triangles in the influence triangulation
+		_Triangles.ExceptWith(influenceTriangulation);
+		// Remove all edges shared by TWO of the removed triangles (i.e. do not remove the edges on the border of the influence triangulation)
+		_Edges.RemoveWhere(e => influenceTriangulation.Count(t => t.Edges.Contains(e)) > 1);
+
+		// Add the new vertex, with triangles connecting it to each edge forming the convex hull of the influence triangulation
+		_Vertices.Add(vertex);
+		foreach (Edge<T, Vertex> influenceTriangulationConvexHullEdge in _Edges.Where(e => influenceTriangulation.Any(t => t.Edges.Contains(e))))
+		{
+			Triangle<T, Vertex> newTriangle = new Triangle<T, Vertex>(this, influenceTriangulationConvexHullEdge, vertex);
+			_Triangles.Add(newTriangle);
+			_Edges.UnionWith(newTriangle.Edges);
+			newTriangle.UpdateAdjacentEdges();
+		}
 	}
 
 	/// <summary>
@@ -243,16 +340,8 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="vertex">A vertex which is known to exist on the boundary of the convex hull.</param>
 	private void _AddOnBoundaryOfConvexHull(Vertex vertex)
 	{
-
-	}
-
-	/// <summary>
-	/// Inserts a vertex which is known to exist strictly outside the convex hull.
-	/// </summary>
-	/// <param name="vertex">A vertex which is known to exist strictly outside the convex hull.</param>
-	private void _AddOutsideConvexHull(Vertex vertex)
-	{
-
+		_AddInsideConvexHull(vertex);
+		_ConstructConvexHull();
 	}
 
 	/// <summary>
@@ -261,7 +350,185 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="mesh">The mesh to combine with.</param>
 	private void _Merge(Mesh<T, Vertex> mesh)
 	{
+		// Get the convex hull vertices from each triangulation
+		List<Vertex> convexHullVerticesL = new List<Vertex>(_ConvexHull.Select(e => e.Vertex1));
+		List<Vertex> convexHullVerticesR = new List<Vertex>(_ConvexHull.Select(e => e.Vertex1));
 
+		#region Linearly separate the two convex hulls
+		// Find a vector parallel to a line that separates the two convex hulls
+		Vector2<T>? separatingVector = null;
+		
+		// First, test the vectors parallel to each convex hull edge on the right mesh
+		foreach (Edge<T, Vertex> boundaryEdgeR in mesh._ConvexHull)
+		{
+			Vector2<T> vector = boundaryEdgeR.Vector;
+			if (convexHullVerticesL.All(v => boundaryEdgeR.GetRighthandOffset(v) > NumericTolerance))
+			{
+				separatingVector = vector;
+				break;
+			}
+		}
+
+		// Then, test the vectors parallel to each convex hull edge on the left mesh
+		if (separatingVector == null)
+		{
+			foreach (Edge<T, Vertex> boundaryEdgeL in _ConvexHull)
+			{
+				Vector2<T> vector = boundaryEdgeL.Vector;
+				if (convexHullVerticesR.All(v => boundaryEdgeL.GetRighthandOffset(v) > NumericTolerance))
+				{
+					separatingVector = vector;
+					break;
+				}
+			}
+		}
+
+		// Throw an error if a vector to separate the two meshes was not found
+		if (separatingVector == null)
+		{
+			throw new Exception("Could not determine an axis to separate convex hulls for merge operation.");
+		}
+		#endregion Linearly separate the two convex hulls
+
+		// Start on each side with the vertex farthest in the direction of the vector found previously
+		Vertex l = convexHullVerticesL
+			.OrderBy(v => separatingVector.X * v.X + separatingVector.Y * v.Y)
+			.First();
+		Vertex r = convexHullVerticesR
+			.OrderBy(v => separatingVector.X * v.X + separatingVector.Y * v.Y)
+			.First();
+
+		_Vertices.Add(r);
+		Edge<T, Vertex> connectingEdge = new Edge<T, Vertex> { Vertex1 = l, Vertex2 = r };
+		_Edges.Add(connectingEdge);
+
+		// Then, iterate
+		while (true)
+		{
+			#region Left candidate vertex
+			SortedList<T, Vertex> potentialCandidateVerticesL = new SortedList<T, Vertex>();
+			foreach (Edge<T, Vertex> edgeL in _Edges)
+			{
+				if (edgeL.Vertex1.Equals(l) || edgeL.Vertex2.Equals(l))
+				{
+					T edgeAngleL = connectingEdge.GetAngularDifference(edgeL);
+					if (edgeAngleL < T.Pi - NumericTolerance)
+					{
+						potentialCandidateVerticesL.Add(edgeAngleL, edgeL.Vertex1.Equals(l) ? edgeL.Vertex2 : edgeL.Vertex1);
+					}
+				}
+			}
+
+			(Vertex, Triangle<T, Vertex>)? candidateL = null;
+			while (potentialCandidateVerticesL.Count > 0)
+			{
+				if (potentialCandidateVerticesL.Keys[0] >= T.Pi - NumericTolerance)
+				{
+					break; // Angle of next potential candidate is greater than or equal to 180 degrees, so no candidate is chosen for left side
+				}
+
+				Vertex nextCandidateVertexL = potentialCandidateVerticesL.Values[0];
+				potentialCandidateVerticesL.RemoveAt(0);
+
+				Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(this, connectingEdge, nextCandidateVertexL);
+				if (potentialCandidateVerticesL.Count > 0)
+				{
+					if (triangle.IsInsideCircumcircle(potentialCandidateVerticesL.Values[0]))
+					{
+						Edge<T, Vertex>? contradictedEdgeL = FindOrCreateEdge(l, nextCandidateVertexL);
+						if (contradictedEdgeL == null)
+							throw new Exception("Expected to find an edge in the triangulation which does not exist.");
+						_RemoveEdge(contradictedEdgeL);
+					}
+					else
+					{
+						candidateL = (nextCandidateVertexL, triangle);
+						break;
+					}
+				}
+			}
+			#endregion Left candidate vertex
+
+			#region Right candidate vertex
+			SortedList<T, Vertex> potentialCandidateVerticesR = new SortedList<T, Vertex>();
+			foreach (Edge<T, Vertex> edgeR in _Edges)
+			{
+				if (edgeR.Vertex1.Equals(l) || edgeR.Vertex2.Equals(l))
+				{
+					T edgeAngleR = connectingEdge.GetAngularDifference(edgeR);
+					if (edgeAngleR < T.Pi - NumericTolerance)
+					{
+						potentialCandidateVerticesR.Add(edgeAngleR, edgeR.Vertex1.Equals(l) ? edgeR.Vertex2 : edgeR.Vertex1);
+					}
+				}
+			}
+
+			(Vertex, Triangle<T, Vertex>)? candidateR = null;
+			while (potentialCandidateVerticesR.Count > 0)
+			{
+				if (potentialCandidateVerticesR.Keys[0] >= T.Pi - NumericTolerance)
+				{
+					break; // Angle of next potential candidate is greater than or equal to 180 degrees, so no candidate is chosen for left side
+				}
+
+				Vertex nextCandidateVertexR = potentialCandidateVerticesR.Values[0];
+				potentialCandidateVerticesR.RemoveAt(0);
+
+				Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(mesh, connectingEdge, nextCandidateVertexR);
+				if (potentialCandidateVerticesR.Count > 0)
+				{
+					if (triangle.IsInsideCircumcircle(potentialCandidateVerticesR.Values[0]))
+					{
+						Edge<T, Vertex>? contradictedEdgeR = FindOrCreateEdge(l, nextCandidateVertexR);
+						if (contradictedEdgeR == null)
+							throw new Exception("Expected to find an edge in the triangulation which does not exist.");
+						_RemoveEdge(contradictedEdgeR);
+					}
+					else
+					{
+						candidateR = (nextCandidateVertexR, triangle);
+						break;
+					}
+				}
+			}
+			#endregion Right candidate vertex
+
+			#region Insert the vertex, edge, and triangle into this triangulation
+			(Vertex, Triangle<T, Vertex>) candidate;
+			if (candidateL != null && candidateR != null)
+			{
+				if (candidateL.Value.Item2.IsInsideCircumcircle(candidateR.Value.Item1))
+				{
+					candidate = candidateR.Value;
+				}
+				else
+				{
+					candidate = candidateL.Value;
+				}
+			}
+			else if (candidateL != null)
+				candidate = candidateL.Value;
+			else if (candidateR != null)
+				candidate = candidateR.Value;
+			else
+				break;
+
+			_Vertices.Add(candidate.Item1);
+			_Edges.UnionWith(candidate.Item2.Edges);
+			_Triangles.Add(candidate.Item2);
+			#endregion Insert the vertex, edge, and triangle into this triangulation
+		}
+
+		// Insert all vertices and all remaining edges/triangles from the other triangulation
+		_Vertices.UnionWith(mesh._Vertices);
+		_Edges.UnionWith(mesh._Edges);
+		_Triangles.UnionWith(mesh._Triangles);
+
+		// Recalculate edge adjacencies
+		foreach (Triangle<T, Vertex> triangle in Triangles)
+		{
+			triangle.UpdateAdjacentEdges();
+		}
 	}
 
 	/// <summary>
@@ -270,20 +537,26 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="vertex">The vertex to insert.</param>
 	public void Add(Vertex vertex)
 	{
-		switch (IsInsideConvexHull(vertex))
+		int region = IsInsideConvexHull(vertex);
+		if (region > 0)
 		{
-			case 1:
-				_AddInsideConvexHull(vertex);
-				break;
-			case -1:
-				_AddOutsideConvexHull(vertex);
-				break;
-			default:
-				_AddOnBoundaryOfConvexHull(vertex);
-				break;
+			_AddInsideConvexHull(vertex);
+		}
+		else if (region < 0)
+		{
+			// Merge a mesh with a single vertex into this one
+			_Merge(new Mesh<T, Vertex>(vertex));
+		}
+		else
+		{
+			_AddOnBoundaryOfConvexHull(vertex);
 		}
 	}
 
+	/// <summary>
+	/// Adds multiple vertices to this mesh, re-updating the triangulation to compensate.
+	/// </summary>
+	/// <param name="vertices">The vertices to insert.</param>
 	public void AddRange(IEnumerable<Vertex> vertices)
 	{
 		// Insert all of the vertices which are known to exist inside or on the boundary of the convex hull of this mesh
@@ -313,19 +586,36 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 		}
 
 		// Handle the vertices outside of the convex hull
-		if (remainingVertices.Count < 3)
-		{
-			// Number of vertices is too small to construct a separate mesh, so insert the vertices one at a time
-			foreach (Vertex vertex in remainingVertices)
-				_AddOutsideConvexHull(vertex);
-		}
-		else
+		if (remainingVertices.Count > 0)
 		{
 			// Construct a new mesh from the remaining vertices, then merge into this mesh
-			_Merge(new Mesh<T, Vertex>(remainingVertices));
+			_Merge(Construct(remainingVertices));
 		}
 	}
 
 	#endregion Insertion
+
+	#region Removal
+
+	/// <summary>
+	/// Removes an edge and any triangles associated with that edge.
+	/// </summary>
+	/// <param name="edge">The edge to remove.</param>
+	private void _RemoveEdge(Edge<T, Vertex> edge)
+	{
+		_Edges.Remove(edge);
+		_Triangles.RemoveWhere(triangle => triangle.Edges.Contains(edge));
+	}
+
+	/// <summary>
+	/// Removes multiple vertices from the mesh, re-updating the triangulation to compensate.
+	/// </summary>
+	/// <param name="vertices">The vertices to be removed.</param>
+	public void RemoveRange(IEnumerable<Vertex> vertices)
+	{
+
+	}
+
+	#endregion Removal
 
 }

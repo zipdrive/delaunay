@@ -120,6 +120,17 @@ internal class Vector2<T> where T : IFloatingPointIeee754<T>
         Y = lhs.Y / rhs
     };
 
+	/// <summary>
+	/// Inverts the sign of the vector and returns the result.
+	/// </summary>
+	/// <param name="vector">The vector to invert the sign of.</param>
+	/// <returns>The vector result of sign inversion.</returns>
+	public static Vector2<T> operator -(Vector2<T> vector) => new Vector2<T>
+	{
+		X = -vector.X,
+		Y = -vector.Y
+	};
+
     /// <summary>
     /// Calculates the dot product with another vector.
     /// </summary>
