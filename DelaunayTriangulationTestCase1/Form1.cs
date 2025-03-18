@@ -37,7 +37,7 @@ namespace DelaunayTriangulationTestCase1
 			#endregion Setup
 
 			// Randomly initialize some vertices
-			const int NUM_VERTICES = 10;
+			const int NUM_VERTICES = 5;
 			Random rand = new Random();
 			List<Vertex2> vertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_VERTICES; ++k)
@@ -54,14 +54,14 @@ namespace DelaunayTriangulationTestCase1
 			model.Axes.Add(new LinearAxis
 			{
 				Position = AxisPosition.Left,
-				Minimum = -1.0,
-				Maximum = 1.0
+				Minimum = -0.1,
+				Maximum = 1.1
 			});
 			model.Axes.Add(new LinearAxis
 			{
 				Position = AxisPosition.Bottom,
-				Minimum = -1.0,
-				Maximum = 1.0
+				Minimum = -0.1,
+				Maximum = 1.1
 			});
 			foreach (Edge<double, Vertex2> edge in mesh.Edges)
 			{

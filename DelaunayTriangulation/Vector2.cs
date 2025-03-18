@@ -143,4 +143,16 @@ internal class Vector2<T> where T : IFloatingPointIeee754<T>
     /// </summary>
     /// <returns>The normalized vector.</returns>
     public Vector2<T> Normalize() => this / Length;
+
+    /// <summary>
+    /// Calculates the counter-clockwise angle between two vectors.
+    /// </summary>
+    /// <param name="other">The other vector.</param>
+    /// <returns>The counter-clockwise angle between this vector and the other vector.</returns>
+    public T Angle(Vector2<T> other)
+    {
+        T angle = T.Acos(Dot(other) / (Length + other.Length));
+        T sgn = X * other.Y - Y * other.X;
+        return sgn < T.Zero ? T.Tau - angle : angle;
+    }
 }

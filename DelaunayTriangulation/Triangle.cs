@@ -150,4 +150,16 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 			}
 		}
 	}
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is Triangle<T, Vertex> other)
+            return !Edges.Except(other.Edges).Any();
+        return false;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Edge1, Edge2, Edge3);
+    }
 }

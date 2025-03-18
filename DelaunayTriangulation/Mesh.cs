@@ -354,6 +354,105 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	}
 
 	/// <summary>
+	/// Search for the edge on the convex hull of the combination of this mesh and another mesh,
+	/// where Vertex1 is a vertex of this mesh and Vertex2 is a vertex of the other mesh.
+	/// </summary>
+	/// <param name="mesh">The other mesh.</param>
+	/// <param name="edge">The edge to inspect.</param>
+	/// <returns>An edge on the convex hull that bridges this mesh with the other mesh. Null if no such edge was found.</returns>
+	private Edge<T, Vertex>? _FindBaseLREdgeHelper(Mesh<T, Vertex> mesh, Edge<T, Vertex> edge, IEnumerable<Vertex> remainingVertices)
+	{
+        // Find the vertex with the largest righthand offset from this edge
+        (Vertex, T)? bestCandidate = null;
+        foreach (Vertex vertex in remainingVertices)
+        {
+            T offset = edge.GetRighthandOffset(vertex);
+            if (offset > NumericTolerance)
+            {
+                if (bestCandidate == null || bestCandidate.Value.Item2 < offset)
+                {
+                    bestCandidate = (vertex, offset);
+                }
+            }
+            else if (offset <= NumericTolerance && offset >= -NumericTolerance)
+            {
+                Vector2<T> edgeVector = edge.Vector;
+                T edgeVectorDot = edgeVector.Dot(Vector2<T>.VectorDifference(edge.Vertex1, vertex));
+                if (edgeVectorDot > -NumericTolerance && edgeVectorDot < edgeVector.LengthSquared)
+                {
+                    if (bestCandidate == null || bestCandidate.Value.Item2 < offset)
+                    {
+                        bestCandidate = (vertex, offset);
+                    }
+                }
+            }
+        }
+
+        if (bestCandidate != null)
+        {
+			Vertex bestVertex = bestCandidate.Value.Item1;
+			remainingVertices = remainingVertices.Where(v => !v.Equals(bestVertex));
+
+            // Add two edges from each endpoint to the new vertex
+            Edge <T, Vertex> edge1 = new Edge<T, Vertex> { Vertex1 = edge.Vertex1, Vertex2 = bestVertex };
+            Edge<T, Vertex> edge2 = new Edge<T, Vertex> { Vertex1 = bestVertex, Vertex2 = edge.Vertex2 };
+            return _FindBaseLREdgeHelper(mesh, edge1, remainingVertices) ?? _FindBaseLREdgeHelper(mesh, edge2, remainingVertices);
+        }
+		else 
+		{
+			return _Vertices.Contains(edge.Vertex1) && mesh._Vertices.Contains(edge.Vertex2) ? edge : null;
+		}
+    }
+
+    /// <summary>
+    /// Search for the edge on the convex hull of the combination of this mesh and another mesh,
+    /// where Vertex1 is a vertex of this mesh and Vertex2 is a vertex of the other mesh.
+    /// </summary>
+    /// <param name="mesh">The other mesh.</param>
+    /// <returns>An edge on the convex hull that bridges this mesh with the other mesh. Null if no such edge was found.</returns>
+    private Edge<T, Vertex> _FindBaseLREdge(Mesh<T, Vertex> mesh)
+	{
+        // Construct set of initial vertices
+        (Vertex, T) minA = (_Vertices.First(), _Vertices.First().X + _Vertices.First().Y);
+        (Vertex, T) maxA = (_Vertices.First(), _Vertices.First().X + _Vertices.First().Y);
+        (Vertex, T) minB = (_Vertices.First(), _Vertices.First().X - _Vertices.First().Y);
+        (Vertex, T) maxB = (_Vertices.First(), _Vertices.First().X - _Vertices.First().Y);
+        foreach (Vertex vertex in _Vertices.Skip(1).Concat(mesh._Vertices))
+        {
+            T a = vertex.X + vertex.Y;
+            T b = vertex.X - vertex.Y;
+            if (a < minA.Item2)
+                minA = (vertex, a);
+            if (a > maxA.Item2)
+                maxA = (vertex, a);
+            if (b < minB.Item2)
+                minB = (vertex, b);
+            if (b > maxB.Item2)
+                maxB = (vertex, b);
+        }
+        List<Vertex> initialVertices = new List<Vertex>(new Vertex[] { maxA.Item1, minB.Item1, minA.Item1, maxB.Item1 }.Distinct());
+        
+        // Recursion to fill out convex hull
+        if (initialVertices.Count > 1)
+        {
+            for (int k = 0; k < initialVertices.Count; ++k)
+            {
+                Vertex vertex1 = initialVertices[k];
+                Vertex vertex2 = initialVertices[(k + 1) % initialVertices.Count];
+
+                Edge<T, Vertex> edge = new Edge<T, Vertex> { Vertex1 = vertex1, Vertex2 = vertex2 };
+                if (!edge.Vertex1.Equals(vertex1))
+                    edge.Flip();
+
+                Edge<T, Vertex>? result = _FindBaseLREdgeHelper(mesh, edge, _Vertices.Concat(mesh._Vertices).Except(initialVertices));
+				if (result != null)
+					return result;
+            }
+        }
+		throw new Exception("Could not find a base LR edge to merge two meshes.");
+    }
+
+	/// <summary>
 	/// Combines this mesh in-place with a mesh that has no overlap of the convex hull.
 	/// </summary>
 	/// <param name="mesh">The mesh to combine with.</param>
@@ -361,109 +460,22 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	{
 		Console.WriteLine("Merge called.");
 
-		// Get the convex hull vertices from each triangulation
-		List<Vertex> convexHullVerticesL = new List<Vertex>(_ConvexHull.Select(e => e.Vertex1));
-		List<Vertex> convexHullVerticesR = new List<Vertex>(_ConvexHull.Select(e => e.Vertex1));
+        // Get the LL edges
+        HashSet<Edge<T, Vertex>> edgesLL = new HashSet<Edge<T, Vertex>>(_Edges);
 
-		#region Linearly separate the two convex hulls
-		// Find a vector parallel to a line that separates the two convex hulls
-		Vector2<T>? separatingVector = null;
-		
-		// First, test the vectors parallel to each convex hull edge on the right mesh
-		foreach (Edge<T, Vertex> boundaryEdgeR in mesh._ConvexHull)
-		{
-			Vector2<T> vector = boundaryEdgeR.Vector;
-			if (convexHullVerticesL.All(v => boundaryEdgeR.GetRighthandOffset(v) > NumericTolerance))
-			{
-				separatingVector = vector;
-				break;
-			}
-		}
+        // Get the convex hull vertices from each triangulation
+        List<Vertex> convexHullVerticesL = new List<Vertex>(_ConvexHull.Count > 0 ? _ConvexHull.Select(e => e.Vertex1) : _Vertices);
+		List<Vertex> convexHullVerticesR = new List<Vertex>(mesh._ConvexHull.Count > 0 ? mesh._ConvexHull.Select(e => e.Vertex1) : mesh._Vertices);
 
-		// Then, test the vectors parallel to each convex hull edge on the left mesh
-		if (separatingVector == null)
-		{
-			foreach (Edge<T, Vertex> boundaryEdgeL in _ConvexHull)
-			{
-				Vector2<T> vector = boundaryEdgeL.Vector;
-				if (convexHullVerticesR.All(v => boundaryEdgeL.GetRighthandOffset(v) > NumericTolerance))
-				{
-					separatingVector = vector;
-					break;
-				}
-			}
-		}
-
-		// Throw an error if a vector to separate the two meshes was not found
-		if (separatingVector == null)
-		{
-			if (_Vertices.Count == 0)
-			{
-				_Vertices = mesh._Vertices;
-				_Edges = mesh._Edges;
-				_Triangles = mesh._Triangles;
-				_ConvexHull = mesh._ConvexHull;
-				return;
-			}
-			else if (_Vertices.Count == 1 && mesh._Vertices.Count == 1)
-			{
-				_Edges.Add(new Edge<T, Vertex>
-				{
-					Vertex1 = _Vertices.First(),
-					Vertex2 = mesh._Vertices.First()
-				});
-				_Vertices.Add(mesh._Vertices.First());
-				return;
-			}
-			else if (_Edges.Count > 0)
-			{
-				Edge<T, Vertex> edge = _Edges.First();
-				if (edge.GetRighthandOffset(mesh._Vertices.First()) > NumericTolerance)
-					edge.Flip();
-				_ConvexHull.Add(edge);
-
-				if (mesh._Edges.Count > 0)
-				{
-					Edge<T, Vertex> otherEdge = _Edges.First();
-					if (otherEdge.GetRighthandOffset(_Vertices.First()) > NumericTolerance)
-						otherEdge.Flip();
-					_ConvexHull.Add(otherEdge);
-				}
-
-				separatingVector = edge.Vector;
-			}
-			else if (mesh._Edges.Count > 0)
-			{
-				Edge<T, Vertex> otherEdge = _Edges.First();
-				if (otherEdge.GetRighthandOffset(_Vertices.First()) > NumericTolerance)
-					otherEdge.Flip();
-				_ConvexHull.Add(otherEdge);
-
-				separatingVector = otherEdge.Vector;
-			}
-			else
-			{
-				throw new Exception("Could not determine an axis to separate convex hulls for merge operation.");
-			}
-		}
-		#endregion Linearly separate the two convex hulls
-
-		// Start on each side with the vertex farthest in the direction of the vector found previously
-		Vertex l = (convexHullVerticesL.Count > 0 ? convexHullVerticesL.AsEnumerable() : _Vertices.AsEnumerable())
-			.OrderBy(v => separatingVector.X * v.X + separatingVector.Y * v.Y)
-			.First();
-		Vertex r = (convexHullVerticesR.Count > 0 ? convexHullVerticesR.AsEnumerable() : mesh._Vertices.AsEnumerable())
-			.OrderBy(v => separatingVector.X * v.X + separatingVector.Y * v.Y)
-			.First();
-
-		HashSet<Edge<T, Vertex>> edgesLL = new HashSet<Edge<T, Vertex>>(_Edges);
-
+		// Create the first connecting edge between the two meshes
+		Edge<T, Vertex> connectingEdge = _FindBaseLREdge(mesh);
+		Vertex l = connectingEdge.Vertex1;
+		Vertex r = connectingEdge.Vertex2;
 		_Vertices.Add(r);
-		Edge<T, Vertex> connectingEdge = new Edge<T, Vertex> { Vertex1 = l, Vertex2 = r };
 		_Edges.Add(connectingEdge);
 
-		// Then, iterate
-		while (true)
+        // Then, iterate
+        while (true)
 		{
 			#region Left candidate vertex
 			SortedList<T, Vertex> potentialCandidateVerticesL = new SortedList<T, Vertex>();
@@ -515,7 +527,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 				if (edgeR.Vertex1.Equals(r) || edgeR.Vertex2.Equals(r))
 				{
 					T edgeAngleR = T.Tau - connectingEdge.GetAngularDifference(edgeR);
-					potentialCandidateVerticesR.Add(edgeAngleR, edgeR.Vertex1.Equals(r) ? edgeR.Vertex2 : edgeR.Vertex1);
+                    potentialCandidateVerticesR.Add(edgeAngleR, edgeR.Vertex1.Equals(r) ? edgeR.Vertex2 : edgeR.Vertex1);
 				}
 			}
 
