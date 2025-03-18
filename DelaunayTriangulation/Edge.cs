@@ -3,7 +3,7 @@ using System.Numerics;
 
 namespace DelaunayTriangulation;
 
-internal class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
 {
     public required Vertex Vertex1;
     public required Vertex Vertex2;
@@ -25,19 +25,19 @@ internal class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex :
 	/// <summary>
 	/// The triangle on the left side of this edge.
 	/// </summary>
-	public Triangle<T, Vertex>? Left;
+	internal Triangle<T, Vertex>? Left;
 
 	/// <summary>
 	/// The triangle on the right side of this edge.
 	/// </summary>
-	public Triangle<T, Vertex>? Right;
+	internal Triangle<T, Vertex>? Right;
 
 	/// <summary>
 	/// Calculates the offset of a vertex from the right side of this edge.
 	/// </summary>
 	/// <param name="vertex">The vertex to find the offset of.</param>
 	/// <returns>The right-hand offset of the vertex from the edge.</returns>
-	public T GetRighthandOffset(Vertex vertex)
+	internal T GetRighthandOffset(Vertex vertex)
 	{
 		return Normal.Dot(new Vector2<T>
 		{
@@ -52,7 +52,7 @@ internal class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex :
 	/// <param name="other">The other edge.</param>
 	/// <returns>The counter-clockwise angle between the two vertices.</returns>
 	/// <exception cref="Exception">Thrown if the given edge is disconnected from this one.</exception>
-	public T GetAngularDifference(Edge<T, Vertex> other)
+	internal T GetAngularDifference(Edge<T, Vertex> other)
 	{
 		Vertex a, b1, b2;
 		if (other.Vertex1.Equals(Vertex1))
@@ -99,7 +99,7 @@ internal class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex :
 	/// <summary>
 	/// Flips the order of vertices in the edge.
 	/// </summary>
-	public void Flip()
+	internal void Flip()
 	{
 		Vertex vtemp = Vertex1;
 		Vertex1 = Vertex2;
