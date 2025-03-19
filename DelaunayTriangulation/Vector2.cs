@@ -151,7 +151,7 @@ internal class Vector2<T> where T : IFloatingPointIeee754<T>
     /// <returns>The counter-clockwise angle between this vector and the other vector.</returns>
     public T Angle(Vector2<T> other)
     {
-        T angle = T.Acos(Dot(other) / (Length + other.Length));
+        T angle = T.Acos(Dot(other) / (Length * other.Length));
         T sgn = X * other.Y - Y * other.X;
         return sgn < T.Zero ? T.Tau - angle : angle;
     }

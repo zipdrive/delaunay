@@ -360,7 +360,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="mesh">The other mesh.</param>
 	/// <param name="edge">The edge to inspect.</param>
 	/// <returns>An edge on the convex hull that bridges this mesh with the other mesh. Null if no such edge was found.</returns>
-	private Edge<T, Vertex>? _FindBaseLREdgeHelper(Mesh<T, Vertex> mesh, Edge<T, Vertex> edge, IEnumerable<Vertex> remainingVertices)
+	private Edge<T, Vertex>? _FindBaseLREdgeHelper(Mesh<T, Vertex> mesh, Edge<T, Vertex> edge, HashSet<Vertex> remainingVertices)
 	{
         // Find the vertex with the largest righthand offset from this edge
         (Vertex, T)? bestCandidate = null;
@@ -378,7 +378,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
             {
                 Vector2<T> edgeVector = edge.Vector;
                 T edgeVectorDot = edgeVector.Dot(Vector2<T>.VectorDifference(edge.Vertex1, vertex));
-                if (edgeVectorDot > -NumericTolerance && edgeVectorDot < edgeVector.LengthSquared)
+                if (edgeVectorDot >= -NumericTolerance && edgeVectorDot < edgeVector.LengthSquared)
                 {
                     if (bestCandidate == null || bestCandidate.Value.Item2 < offset)
                     {
@@ -391,7 +391,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
         if (bestCandidate != null)
         {
 			Vertex bestVertex = bestCandidate.Value.Item1;
-			remainingVertices = remainingVertices.Where(v => !v.Equals(bestVertex));
+			remainingVertices.Remove(bestVertex);
 
             // Add two edges from each endpoint to the new vertex
             Edge <T, Vertex> edge1 = new Edge<T, Vertex> { Vertex1 = edge.Vertex1, Vertex2 = bestVertex };
@@ -435,6 +435,9 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
         // Recursion to fill out convex hull
         if (initialVertices.Count > 1)
         {
+			HashSet<Vertex> remainingVertices = new HashSet<Vertex>(_Vertices.Concat(mesh._Vertices));
+			remainingVertices.ExceptWith(initialVertices);
+
             for (int k = 0; k < initialVertices.Count; ++k)
             {
                 Vertex vertex1 = initialVertices[k];
@@ -444,7 +447,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
                 if (!edge.Vertex1.Equals(vertex1))
                     edge.Flip();
 
-                Edge<T, Vertex>? result = _FindBaseLREdgeHelper(mesh, edge, _Vertices.Concat(mesh._Vertices).Except(initialVertices));
+                Edge<T, Vertex>? result = _FindBaseLREdgeHelper(mesh, edge, remainingVertices);
 				if (result != null)
 					return result;
             }
@@ -504,10 +507,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 				{
 					if (triangle.IsInsideCircumcircle(potentialCandidateVerticesL.Values[0]))
 					{
-						Edge<T, Vertex>? contradictedEdgeL = FindOrCreateEdge(l, nextCandidateVertexL);
-						if (contradictedEdgeL == null)
-							throw new Exception("Expected to find an edge in the triangulation which does not exist.");
-						_RemoveEdge(contradictedEdgeL);
+						Edge<T, Vertex> contradictedEdgeL = _RemoveEdge(l, nextCandidateVertexL);
 						edgesLL.Remove(contradictedEdgeL);
 					}
 					else
@@ -547,10 +547,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 				{
 					if (triangle.IsInsideCircumcircle(potentialCandidateVerticesR.Values[0]))
 					{
-						Edge<T, Vertex>? contradictedEdgeR = FindOrCreateEdge(l, nextCandidateVertexR);
-						if (contradictedEdgeR == null)
-							throw new Exception("Expected to find an edge in the triangulation which does not exist.");
-						mesh._RemoveEdge(contradictedEdgeR);
+						mesh._RemoveEdge(r, nextCandidateVertexR);
 					}
 					else
 					{
@@ -571,11 +568,12 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 					candidate = candidateR.Value;
 					r = candidateR.Value.Item1;
 				}
-				else
+				else if (candidateR.Value.Item2.IsInsideCircumcircle(candidateL.Value.Item1))
 				{
 					candidate = candidateL.Value;
 					l = candidateL.Value.Item1;
 				}
+				else throw new Exception("The circumcircles of both candidate vertices contain the other candidate.");
 			}
 			else if (candidateL != null)
 			{
@@ -594,7 +592,7 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 			_Edges.UnionWith(candidate.Item2.Edges);
 			_Triangles.Add(candidate.Item2);
 
-			connectingEdge = FindOrCreateEdge(l, r);
+			connectingEdge = FindOrCreateEdge(r, l);
 			#endregion Insert the vertex, edge, and triangle into this triangulation
 		}
 
@@ -682,12 +680,50 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <summary>
 	/// Removes an edge and any triangles associated with that edge.
 	/// </summary>
+	/// <param name="a">A vertex endpoint of the edge.</param>
+	/// <param name="b">A vertex endpoint of the edge.</param>
+	private Edge<T, Vertex> _RemoveEdge(Vertex a, Vertex b)
+	{
+		Edge<T, Vertex>? edge = _Edges.FirstOrDefault(e => (e.Vertex1.Equals(a) && e.Vertex2.Equals(b)) || (e.Vertex2.Equals(a) && e.Vertex1.Equals(b)));
+		if (edge == null)
+			throw new Exception("Expected to find edge that does not exist.");
+		_RemoveEdge(edge);
+		return edge;
+	}
+
+	/// <summary>
+	/// Removes an edge and any triangles associated with that edge.
+	/// </summary>
 	/// <param name="edge">The edge to remove.</param>
 	private void _RemoveEdge(Edge<T, Vertex> edge)
 	{
 		_Edges.Remove(edge);
 		_ConvexHull.Remove(edge);
-		_Triangles.RemoveWhere(triangle => triangle.Edges.Contains(edge));
+
+		if (edge.Left != null)
+		{
+			Triangle<T, Vertex> triangle = edge.Left;
+			_Triangles.Remove(triangle);
+			foreach (Edge<T, Vertex> otherEdge in triangle.Edges)
+			{
+				if (triangle.Equals(otherEdge.Left))
+					otherEdge.Left = null;
+				if (triangle.Equals(otherEdge.Right))
+					otherEdge.Right = null;
+			}
+		}
+		if (edge.Right != null)
+		{
+			Triangle<T, Vertex> triangle = edge.Right;
+			_Triangles.Remove(triangle);
+			foreach (Edge<T, Vertex> otherEdge in triangle.Edges)
+			{
+				if (triangle.Equals(otherEdge.Left))
+					otherEdge.Left = null;
+				if (triangle.Equals(otherEdge.Right))
+					otherEdge.Right = null;
+			}
+		}
 	}
 
 	/// <summary>

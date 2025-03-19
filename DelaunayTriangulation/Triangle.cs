@@ -53,6 +53,34 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 		.Cast<Triangle<T, Vertex>>();
 
 	/// <summary>
+	/// Constructs a triangle from three vertices, for a mesh that consists of only three vertices.
+	/// Flips the ordering of existing edges to ensure that the edges are in a counter-clockwise direction, then updates the edge adjacencies.
+	/// </summary>
+	/// <param name="mesh">The existing triangulation.</param>
+	/// <param name="vertex1">A vertex of the triangle.</param>
+	/// <param name="vertex2">A vertex of the triangle.</param>
+	/// <param name="vertex3">A vertex of the triangle.</param>
+	internal Triangle(Mesh<T, Vertex> mesh, Vertex vertex1, Vertex vertex2, Vertex vertex3)
+	{
+		Edge1 = mesh.FindOrCreateEdge(vertex1, vertex2);
+		if (Edge1.GetRighthandOffset(vertex3) > Mesh<T, Vertex>.NumericTolerance)
+			Edge1.Flip();
+		Edge1.Left = this;
+
+		Edge2 = mesh.FindOrCreateEdge(Edge1.Vertex2, vertex3);
+		if (!Edge2.Vertex1.Equals(Edge1.Vertex2))
+			Edge2.Flip();
+		Edge2.Left = this;
+
+		Edge3 = mesh.FindOrCreateEdge(vertex3, Edge1.Vertex1);
+		if (!Edge3.Vertex1.Equals(Edge2.Vertex2))
+			Edge3.Flip();
+		Edge3.Left = this;
+
+		RecalculateCircumcircle(vertex1, vertex2, vertex3);
+	}
+
+	/// <summary>
 	/// Constructs a triangle from an edge and a third vertex.
 	/// </summary>
 	/// <param name="mesh">The existing triangulation.</param>
@@ -68,48 +96,20 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	}
 
 	/// <summary>
-	/// Constructs a triangle from three vertices.
-	/// Flips the ordering of existing edges to ensure that the edges are in a counter-clockwise direction.
-	/// </summary>
-	/// <param name="mesh">The existing triangulation.</param>
-	/// <param name="vertex1">A vertex of the triangle.</param>
-	/// <param name="vertex2">A vertex of the triangle.</param>
-	/// <param name="vertex3">A vertex of the triangle.</param>
-	internal Triangle(Mesh<T, Vertex> mesh, Vertex vertex1, Vertex vertex2, Vertex vertex3)
-	{
-		Edge1 = mesh.FindOrCreateEdge(vertex1, vertex2);
-		if (Edge1.GetRighthandOffset(vertex3) > Mesh<T, Vertex>.NumericTolerance)
-			Edge1.Flip();
-		
-		Edge2 = mesh.FindOrCreateEdge(vertex2, vertex3);
-		if (!Edge2.Vertex1.Equals(Edge1.Vertex2))
-			Edge2.Flip();
-
-		Edge3 = mesh.FindOrCreateEdge(vertex3, vertex1);
-		if (!Edge3.Vertex1.Equals(Edge2.Vertex2))
-			Edge3.Flip();
-
-		RecalculateCircumcircle(vertex1, vertex2, vertex3);
-	}
-
-	/// <summary>
 	/// Calculates the circumcircle center and radius.
 	/// </summary>
 	public void RecalculateCircumcircle(Vertex vertex1, Vertex vertex2, Vertex vertex3)
 	{
 		// Calculate circumcircle
 		T two = T.CreateChecked(2);
-		Vector2<T> offset12 = Vector2<T>.VectorDifference(vertex1, vertex2);
-		Vector2<T> offset23 = Vector2<T>.VectorDifference(vertex2, vertex3);
-		Vector2<T> offset31 = Vector2<T>.VectorDifference(vertex3, vertex1);
-		T dR12 = offset12.Length;
-		T dR23 = offset23.Length;
-		T dR31 = offset31.Length;
-		T angle1 = T.Acos(-(offset12.X * offset31.X + offset12.Y * offset31.Y) / (dR12 + dR31));
+		Vector2<T> offset12 = Vector2<T>.VectorDifference(vertex1, vertex2).Normalize();
+		Vector2<T> offset23 = Vector2<T>.VectorDifference(vertex2, vertex3).Normalize();
+		Vector2<T> offset31 = Vector2<T>.VectorDifference(vertex3, vertex1).Normalize();
+		T angle1 = T.Acos(-offset12.Dot(offset31));
 		T sin1 = T.Sin(two * angle1);
-		T angle2 = T.Acos(-(offset12.X * offset23.X + offset12.Y * offset23.Y) / (dR12 + dR23));
+		T angle2 = T.Acos(-offset23.Dot(offset12));
 		T sin2 = T.Sin(two * angle2);
-		T angle3 = T.Acos(-(offset23.X * offset31.X + offset23.Y * offset31.Y) / (dR23 + dR31));
+		T angle3 = T.Acos(-offset31.Dot(offset23));
 		T sin3 = T.Sin(two * angle3);
 		T normalizationConstant = T.One / (sin1 + sin2 + sin3);
 		CircumcircleCenterX = normalizationConstant * (vertex1.X * sin1 + vertex2.X * sin2 + vertex3.X * sin3);

@@ -9,6 +9,8 @@ namespace DelaunayTriangulationTestCase1
 {
 	public partial class Form1 : Form
 	{
+		public static Mesh<double, Vertex2>? Mesh;
+
 		PlotView plot1;
 
 		public Form1()
@@ -37,7 +39,7 @@ namespace DelaunayTriangulationTestCase1
 			#endregion Setup
 
 			// Randomly initialize some vertices
-			const int NUM_VERTICES = 5;
+			const int NUM_VERTICES = 24;
 			Random rand = new Random();
 			List<Vertex2> vertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_VERTICES; ++k)
@@ -48,7 +50,7 @@ namespace DelaunayTriangulationTestCase1
 				});
 
 			// Construct a mesh from them
-			Mesh<double, Vertex2> mesh = Mesh<double, Vertex2>.Construct(vertices);
+			Mesh = Mesh<double, Vertex2>.Construct(vertices);
 
 			// Display the edges onto the plot
 			model.Axes.Add(new LinearAxis
@@ -63,7 +65,9 @@ namespace DelaunayTriangulationTestCase1
 				Minimum = -0.1,
 				Maximum = 1.1
 			});
-			foreach (Edge<double, Vertex2> edge in mesh.Edges)
+
+			// Draw edges
+			foreach (Edge<double, Vertex2> edge in Mesh.Edges)
 			{
 				LineAnnotation edgeLine = new LineAnnotation
 				{
@@ -85,6 +89,32 @@ namespace DelaunayTriangulationTestCase1
 					edgeLine.Intercept = edge.Vertex2.Y - edgeLine.MinimumX * edgeLine.Slope;
 				}
 				model.Annotations.Add(edgeLine);
+			}
+
+			// Draw triangles
+			foreach (Triangle<double, Vertex2> triangle in Mesh.Triangles)
+			{
+				PolygonAnnotation triangleLines = new PolygonAnnotation
+				{
+					LineStyle = LineStyle.Dot,
+					Stroke = OxyColor.FromRgb(0xFF, 0x00, 0x00),
+					StrokeThickness = 2.0,
+					Fill = OxyColor.FromArgb(0x10, 0xFF, 0x00, 0x00)
+				};
+				triangleLines.Points.AddRange(triangle.Vertices.Select(v => new DataPoint(v.X, v.Y)));
+				model.Annotations.Add(triangleLines);
+			}
+			
+			// Draw vertices
+			foreach (Vertex2 vertex in Mesh.Vertices)
+			{
+				model.Annotations.Add(new PointAnnotation
+				{
+					X = vertex.X,
+					Y = vertex.Y,
+					Size = 3.0,
+					Fill = OxyColor.FromRgb(0x00, 0x00, 0x00)
+				});
 			}
 		}
 	}

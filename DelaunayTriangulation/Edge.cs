@@ -102,6 +102,8 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 
     public override int GetHashCode()
     {
-		return HashCode.Combine(Vertex1, Vertex2);
+		Vertex a = Vertex1.X < Vertex2.X ? Vertex1 : Vertex2;
+		Vertex b = Vertex1.X < Vertex2.X ? Vertex2 : Vertex1;
+		return HashCode.Combine(a, b);
     }
 }
