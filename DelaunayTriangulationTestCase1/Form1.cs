@@ -149,7 +149,7 @@ namespace DelaunayTriangulationTestCase1
 			#endregion Setup
 
 			// Randomly initialize some vertices
-			const int NUM_INITIAL_VERTICES = 100;
+			const int NUM_INITIAL_VERTICES = 3;
 			Random rand = new Random();
 			List<Vertex2> vertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_INITIAL_VERTICES; ++k)
@@ -166,7 +166,7 @@ namespace DelaunayTriangulationTestCase1
 			var initialTriangles = new HashSet<Triangle<double, Vertex2>>(Mesh.Triangles);
 
 			// Add new vertices
-			const int NUM_ADDITIONAL_VERTICES = 5;
+			const int NUM_ADDITIONAL_VERTICES = 100;
 			List<Vertex2> newVertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_ADDITIONAL_VERTICES; ++k)
 			{
