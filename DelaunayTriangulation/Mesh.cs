@@ -334,7 +334,8 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 
 		// Add the new vertex, with triangles connecting it to each edge forming the convex hull of the influence triangulation
 		_Vertices.Add(vertex);
-		foreach (Edge<T, Vertex> influenceTriangulationConvexHullEdge in _Edges.Where(e => influenceTriangulation.Any(t => t.Edges.Contains(e))))
+		List<Edge<T, Vertex>> influenceTriangulationConvexHull = new List<Edge<T, Vertex>>(_Edges.Where(e => influenceTriangulation.Any(t => t.Edges.Contains(e))));
+		foreach (Edge<T, Vertex> influenceTriangulationConvexHullEdge in influenceTriangulationConvexHull)
 		{
 			Triangle<T, Vertex> newTriangle = new Triangle<T, Vertex>(this, influenceTriangulationConvexHullEdge, vertex);
 			_Triangles.Add(newTriangle);
@@ -350,7 +351,25 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	private void _AddOnBoundaryOfConvexHull(Vertex vertex)
 	{
 		_AddInsideConvexHull(vertex);
-		_ConstructConvexHull();
+
+		// Remove the removed convex hull edge from the convex hull
+		int convexHullRemovedEdgeIndex = _ConvexHull.FindIndex(e => !_Edges.Contains(e));
+		if (convexHullRemovedEdgeIndex < 0)
+			throw new Exception("Expected a convex hull edge to be removed.");
+		Edge<T, Vertex> convexHullRemovedEdge = _ConvexHull[convexHullRemovedEdgeIndex];
+		_ConvexHull.RemoveAt(convexHullRemovedEdgeIndex);
+
+		// Insert the first edge
+		Edge<T, Vertex> edge1 = FindOrCreateEdge(convexHullRemovedEdge.Vertex1, vertex);
+		if (!edge1.Vertex2.Equals(vertex))
+			edge1.Flip();
+		_ConvexHull.Insert(convexHullRemovedEdgeIndex, edge1);
+
+		// Insert the second edge
+		Edge<T, Vertex> edge2 = FindOrCreateEdge(vertex, convexHullRemovedEdge.Vertex2);
+		if (!edge2.Vertex1.Equals(vertex))
+			edge2.Flip();
+		_ConvexHull.Insert(convexHullRemovedEdgeIndex + 1, edge2);
 	}
 
 	/// <summary>
@@ -444,9 +463,6 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
                 Vertex vertex2 = initialVertices[(k + 1) % initialVertices.Count];
 
                 Edge<T, Vertex> edge = new Edge<T, Vertex> { Vertex1 = vertex1, Vertex2 = vertex2 };
-                if (!edge.Vertex1.Equals(vertex1))
-                    edge.Flip();
-
                 Edge<T, Vertex>? result = _FindBaseLREdgeHelper(mesh, edge, remainingVertices);
 				if (result != null)
 					return result;
@@ -461,8 +477,6 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="mesh">The mesh to combine with.</param>
 	private void _Merge(Mesh<T, Vertex> mesh)
 	{
-		Console.WriteLine("Merge called.");
-
         // Get the LL edges
         HashSet<Edge<T, Vertex>> edgesLL = new HashSet<Edge<T, Vertex>>(_Edges);
 
@@ -471,7 +485,8 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 		List<Vertex> convexHullVerticesR = new List<Vertex>(mesh._ConvexHull.Count > 0 ? mesh._ConvexHull.Select(e => e.Vertex1) : mesh._Vertices);
 
 		// Create the first connecting edge between the two meshes
-		Edge<T, Vertex> connectingEdge = _FindBaseLREdge(mesh);
+		Edge<T, Vertex> convexHullLREdge = _FindBaseLREdge(mesh);
+		Edge<T, Vertex> connectingEdge = convexHullLREdge;
 		Vertex l = connectingEdge.Vertex1;
 		Vertex r = connectingEdge.Vertex2;
 		_Vertices.Add(r);
@@ -596,6 +611,8 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 			#endregion Insert the vertex, edge, and triangle into this triangulation
 		}
 
+		Edge<T, Vertex> convexHullRLEdge = connectingEdge;
+
 		// Insert all vertices and all remaining edges/triangles from the other triangulation
 		_Vertices.UnionWith(mesh._Vertices);
 		_Edges.UnionWith(mesh._Edges);
@@ -608,7 +625,39 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 		}
 
 		// Recalculate convex hull
-		_ConstructConvexHull();
+		List<Edge<T, Vertex>> convexHullLL = new List<Edge<T, Vertex>>(_ConvexHull);
+		List<Edge<T, Vertex>> convexHullRR = new List<Edge<T, Vertex>>(mesh._ConvexHull);
+		_ConvexHull = new List<Edge<T, Vertex>>();
+		foreach (Edge<T, Vertex> convexHullEdgeRR in convexHullRR)
+		{
+			if (_Edges.Contains(convexHullEdgeRR))
+			{
+				if (_ConvexHull.Count > 0 && _ConvexHull[0].Vertex1.Equals(convexHullEdgeRR.Vertex2))
+				{
+					_ConvexHull.Insert(0, convexHullEdgeRR);
+				}
+				else
+				{
+					_ConvexHull.Add(convexHullEdgeRR);
+				}
+			}
+		}
+		_ConvexHull.Insert(0, convexHullLREdge);
+		_ConvexHull.Add(convexHullRLEdge);
+		foreach (Edge<T, Vertex> convexHullEdgeLL in convexHullLL)
+		{
+			if (_Edges.Contains(convexHullEdgeLL))
+			{
+				if (_ConvexHull[0].Vertex1.Equals(convexHullEdgeLL.Vertex2))
+				{
+					_ConvexHull.Insert(0, convexHullEdgeLL);
+				}
+				else
+				{
+					_ConvexHull.Add(convexHullEdgeLL);
+				}
+			}
+		}
 	}
 
 	/// <summary>
@@ -662,14 +711,37 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 			}
 			else ++index;
 
-			index = index % remainingVertices.Count;
+			if (index >= remainingVertices.Count)
+				index = 0;
 		}
 
 		// Handle the vertices outside of the convex hull
-		if (remainingVertices.Count > 0)
+		while (remainingVertices.Count > 0)
 		{
-			// Construct a new mesh from the remaining vertices, then merge into this mesh
-			_Merge(Construct(remainingVertices));
+			bool verticesAddedToMesh = false;
+			for (int k = 0; k < _ConvexHull.Count; ++k)
+			{
+				List<Vertex> partitionedVertices = new List<Vertex>();
+				for (int i = remainingVertices.Count - 1; i >= 0; --i)
+				{
+					if (_ConvexHull[k].GetRighthandOffset(remainingVertices[i]) > NumericTolerance)
+					{
+						partitionedVertices.Add(remainingVertices[i]);
+						remainingVertices.RemoveAt(i);
+					}
+				}
+
+				if (partitionedVertices.Count > 0)
+				{
+					// Construct a new mesh from the remaining vertices, then merge into this mesh
+					_Merge(Construct(partitionedVertices));
+					verticesAddedToMesh = true;
+					break;
+				}
+			}
+
+			if (!verticesAddedToMesh)
+				throw new Exception("Expected to find a vertex outside of the convex hull.");
 		}
 	}
 
@@ -698,7 +770,6 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	private void _RemoveEdge(Edge<T, Vertex> edge)
 	{
 		_Edges.Remove(edge);
-		_ConvexHull.Remove(edge);
 
 		if (edge.Left != null)
 		{
