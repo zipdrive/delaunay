@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace DelaunayTriangulation;
@@ -771,12 +772,27 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	}
 
 	/// <summary>
+	/// Rebuilds a Delaunay triangulation constrained by the edges of a polygon.
+	/// </summary>
+	/// <param name="edges">The edges of the polygon.</param>
+	private void _RebuildConstrainedPolygon(IEnumerable<Edge<T, Vertex>> edges)
+	{
+		throw new NotImplementedException();
+	}
+
+	/// <summary>
 	/// Removes a single vertex from the mesh, re-updating the triangulation to compensate.
 	/// </summary>
 	/// <param name="vertex">The vertex to be removed.</param>
 	public void Remove(Vertex vertex)
 	{
+		if (_Vertices.Count <= 1)
+		{
+			_Vertices.Remove(vertex);
+			return;
+		}
 
+		throw new NotImplementedException();
 	}
 
 	/// <summary>
@@ -785,7 +801,66 @@ public class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="vertices">The vertices to be removed.</param>
 	public void RemoveRange(IEnumerable<Vertex> vertices)
 	{
+		// Find which triangles are going to be removed
+		List<Edge<T, Vertex>> removedEdges = new List<Edge<T, Vertex>>(_Edges.Where(e => vertices.Contains(e.Vertex1) || vertices.Contains(e.Vertex2)));
+		List<Triangle<T, Vertex>> removedTriangles = new List<Triangle<T, Vertex>>(removedEdges.SelectMany(e =>
+		{
+			List<Triangle<T, Vertex>> result = new List<Triangle<T, Vertex>>();
+			if (e.Left != null)
+				result.Add(e.Left);
+			if (e.Right != null)
+				result.Add(e.Right);
+			return result;
+		}));
 
+		// Remove the vertices, as well as the edges and triangles attached to those vertices
+		_Vertices.ExceptWith(vertices);
+		foreach (Edge<T, Vertex> removedEdge in removedEdges)
+			_RemoveEdge(removedEdge);
+
+		// Construct the polygons which are now non-compliant with Delaunay triangulation
+		IEnumerable<Edge<T, Vertex>> outerEdges = _Edges.Where(e => removedTriangles.Any(removedTriangle => removedTriangle.Edges.Contains(e)));
+		if (outerEdges.Any())
+		{
+            Dictionary<Vertex, Edge<T, Vertex>> outerEdgeFirstVertex = new Dictionary<Vertex, Edge<T, Vertex>>(outerEdges.Select(e => new KeyValuePair<Vertex, Edge<T, Vertex>>(e.Vertex1, e)));
+            Dictionary<Vertex, Edge<T, Vertex>> outerEdgeLastVertex = new Dictionary<Vertex, Edge<T, Vertex>>(outerEdges.Select(e => new KeyValuePair<Vertex, Edge<T, Vertex>>(e.Vertex2, e)));
+            while (outerEdgeFirstVertex.Count > 0)
+			{
+				Vertex firstVertex = outerEdgeFirstVertex.Keys.First();
+                Vertex lastVertex = firstVertex;
+                List<Edge<T, Vertex>> polygon = new List<Edge<T, Vertex>>();
+
+                while (true)
+				{
+					if (outerEdgeFirstVertex.TryGetValue(lastVertex, out Edge<T, Vertex>? nextPolygonEdge) && nextPolygonEdge != null)
+					{
+						outerEdgeFirstVertex.Remove(nextPolygonEdge.Vertex1);
+						outerEdgeLastVertex.Remove(nextPolygonEdge.Vertex2);
+						polygon.Add(nextPolygonEdge);
+						lastVertex = nextPolygonEdge.Vertex2;
+					}
+					else if (outerEdgeLastVertex.TryGetValue(firstVertex, out Edge<T, Vertex>? precedingPolygonEdge) && precedingPolygonEdge != null)
+					{
+						outerEdgeFirstVertex.Remove(precedingPolygonEdge.Vertex1);
+						outerEdgeLastVertex.Remove(precedingPolygonEdge.Vertex2);
+						polygon.Insert(0, precedingPolygonEdge);
+						firstVertex = precedingPolygonEdge.Vertex1;
+					}
+					else break;
+                }
+				
+				if (firstVertex.Equals(lastVertex))
+				{
+					// Rebuild the polygon
+					_RebuildConstrainedPolygon(polygon);
+				}
+				else
+				{
+					// Chunk taken out of convex hull
+					throw new NotImplementedException();
+				}
+			}
+        }
 	}
 
 	#endregion Removal
