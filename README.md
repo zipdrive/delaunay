@@ -65,7 +65,7 @@ The triangle on the righthand-side of the edge (when oriented so that the first 
 Calculates the counter-clockwise angle of rotation from this edge to the given edge. (The given edge must have at least one vertex in common with this edge.)
 
 ### Triangle
-The Triangle class represents a triangle in the Delaunay triangulation.
+The Triangle class represents a triangle in the Delaunay triangulation. It requires the same type arguments as `Mesh`.
 
 #### Properties
     IEnumerable<Vertex> Vertices
