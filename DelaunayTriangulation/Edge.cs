@@ -3,15 +3,32 @@ using System.Numerics;
 
 namespace DelaunayTriangulation;
 
+/// <summary>
+/// An edge between two vertices.
+/// </summary>
+/// <typeparam name="T">The floating-point type used for numeric calculations.</typeparam>
+/// <typeparam name="Vertex">The data type for each vertex.</typeparam>
 public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
 {
-    public required Vertex Vertex1;
-    public required Vertex Vertex2;
+    internal Vertex Vertex1;
+    internal Vertex Vertex2;
 
-    /// <summary>
-    /// The vector parallel to the edge.
-    /// </summary>
-    internal Vector2<T> Vector => Vector2<T>.VectorDifference(Vertex1, Vertex2);
+	/// <summary>
+	/// The vertices of this edge.
+	/// </summary>
+	public IEnumerable<Vertex> Vertices
+	{
+		get
+		{
+			yield return Vertex1;
+			yield return Vertex2;
+		}
+	}
+
+	/// <summary>
+	/// The vector parallel to the edge.
+	/// </summary>
+	internal Vector2<T> Vector => Vector2<T>.VectorDifference(Vertex1, Vertex2);
 
     /// <summary>
     /// The vector perpendicular to the edge.
@@ -25,12 +42,33 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <summary>
 	/// The triangle on the left side of this edge.
 	/// </summary>
-	internal Triangle<T, Vertex>? Left;
+	internal Triangle<T, Vertex>? _Left;
+
+	/// <summary>
+	/// The triangle on the left side of this edge.
+	/// </summary>
+	public Triangle<T, Vertex>? Left => _Left;
 
 	/// <summary>
 	/// The triangle on the right side of this edge.
 	/// </summary>
-	internal Triangle<T, Vertex>? Right;
+	internal Triangle<T, Vertex>? _Right;
+
+	/// <summary>
+	/// The triangle on the right side of this edge.
+	/// </summary>
+	public Triangle<T, Vertex>? Right => _Right;
+
+	/// <summary>
+	/// Creates an edge between the two given vertices.
+	/// </summary>
+	/// <param name="vertex1">An endpoint vertex of the edge.</param>
+	/// <param name="vertex2">An endpoint vertex of the edge.</param>
+	internal Edge(Vertex vertex1, Vertex vertex2)
+	{
+		Vertex1 = vertex1;
+		Vertex2 = vertex2;
+	}
 
 	/// <summary>
 	/// Calculates the offset of a vertex from the right side of this edge.
@@ -52,7 +90,7 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <param name="other">The other edge.</param>
 	/// <returns>The counter-clockwise angle between the two vertices.</returns>
 	/// <exception cref="Exception">Thrown if the given edge is disconnected from this one.</exception>
-	internal T GetAngularDifference(Edge<T, Vertex> other)
+	public T GetAngularDifference(Edge<T, Vertex> other)
     {
         Vector2<T> b1Vector = Vector;
         Vector2<T> b2Vector = other.Vector;
@@ -88,8 +126,8 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 		Vertex2 = vtemp;
 
 		Triangle<T, Vertex>? ttemp = Left;
-		Left = Right;
-		Right = ttemp;
+		_Left = Right;
+		_Right = ttemp;
 	}
 
 
@@ -102,8 +140,12 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 
     public override int GetHashCode()
     {
-		Vertex a = Vertex1.X < Vertex2.X ? Vertex1 : Vertex2;
-		Vertex b = Vertex1.X < Vertex2.X ? Vertex2 : Vertex1;
-		return HashCode.Combine(a, b);
+		bool ordering;
+		int compareX = Vertex1.X.CompareTo(Vertex2.X);
+		if (compareX != 0)
+			ordering = compareX < 0;
+		else
+			ordering = Vertex1.Y.CompareTo(Vertex2.Y) < 0;
+		return ordering ? HashCode.Combine(Vertex1, Vertex2) : HashCode.Combine(Vertex2, Vertex1);
     }
 }

@@ -6,8 +6,8 @@ namespace DelaunayTriangulation;
 /// <summary>
 /// A vertex in 2-dimensional space.
 /// </summary>
-/// <typeparam name="T">The type of floating-point number.
-// Use float for less memory, and double for greater precision.</typeparam>
+/// <typeparam name="T">The floating-point type, used for numeric calculation.
+/// Use float for less memory, and double for greater precision.</typeparam>
 public interface IVertex2<T> where T : IFloatingPointIeee754<T>
 {
     /// <summary>
@@ -19,4 +19,15 @@ public interface IVertex2<T> where T : IFloatingPointIeee754<T>
     /// The y-coordinate of the vertex.
     /// </summary>
     public T Y { get; }
+}
+
+/// <summary>
+/// A simple vertex.
+/// </summary>
+/// <typeparam name="T">The floating-point type, used for numeric calculation.</typeparam>
+internal class SimpleVertex2<T> : IVertex2<T> where T : IFloatingPointIeee754<T>
+{
+	public required T X { get; set; }
+
+	public required T Y { get; set; }
 }

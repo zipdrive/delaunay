@@ -4,7 +4,11 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace DelaunayTriangulation;
 
-internal class Vector2<T> where T : IFloatingPointIeee754<T>
+/// <summary>
+/// A 2D vector.
+/// </summary>
+/// <typeparam name="T">The floating-point type used for numeric calculations.</typeparam>
+public class Vector2<T> where T : IFloatingPointIeee754<T>
 {
     /// <summary>
     /// The x component of the vector.
@@ -34,7 +38,7 @@ internal class Vector2<T> where T : IFloatingPointIeee754<T>
 	/// <param name="start">The start of the vector.</param>
 	/// <param name="end">The end of the vector.</param>
 	/// <returns>The vector from the given start position to the given end position.</returns>
-	public static Vector2<T> VectorDifference<Vertex>(Vertex start, Vertex end) where Vertex : IVertex2<T> => new Vector2<T>
+	public static Vector2<T> VectorDifference(IVertex2<T> start, IVertex2<T> end) => new Vector2<T>
 	{
 		X = end.X - start.X,
 		Y = end.Y - start.Y
