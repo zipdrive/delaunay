@@ -223,10 +223,31 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	internal bool IsInsideCircumcircle(Vertex vertex) => Vector2<T>.VectorDifference(vertex, CircumcircleCenter).LengthSquared < CircumcircleRadiusSquared;
 
 	/// <summary>
-	/// Updates the edges composing this triangle to point back to this triangle.
+	/// Determines the orientation of the triangle.
 	/// </summary>
-	/// <exception cref="Exception">Throws an exception if the three vertices of the triangle are on a single line.</exception>
-	internal void UpdateAdjacentEdges(T numericTolerance)
+	/// <returns>Greater than 0 if the triangle is oriented counter-clockwise.
+	/// Equal to 0 if the vertices of the triangle are co-linear.
+	/// Less than 0 if the triangle is oriented clockwise.</returns>
+	internal T Orientation =>
+		Edge1.Vector.X * (Edge1.Vertices.Contains(Edge2.Vertex1) ? Edge2.Vertex2 : Edge2.Vertex1).Y
+			+ Edge2.Vector.X * (Edge2.Vertices.Contains(Edge3.Vertex1) ? Edge3.Vertex2 : Edge3.Vertex1).Y
+			+ Edge3.Vector.X * (Edge3.Vertices.Contains(Edge1.Vertex1) ? Edge1.Vertex2 : Edge1.Vertex1).Y;
+
+	/// <summary>
+	/// Calculates a power test.
+	/// </summary>
+	/// <param name="vertex">A point to test.</param>
+	/// <returns>The power test of the point.</returns>
+	internal T Power(Vertex vertex)
+	{
+		return CircumcircleRadiusSquared - Vector2<T>.VectorDifference(vertex, CircumcircleCenter).LengthSquared;
+    }
+
+    /// <summary>
+    /// Updates the edges composing this triangle to point back to this triangle.
+    /// </summary>
+    /// <exception cref="Exception">Throws an exception if the three vertices of the triangle are on a single line.</exception>
+    internal void UpdateAdjacentEdges(T numericTolerance)
 	{
 		HashSet<Vertex> vertices = new HashSet<Vertex>(Vertices);
 		foreach (Edge<T, Vertex> edge in Edges)
