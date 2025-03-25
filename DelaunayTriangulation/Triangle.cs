@@ -51,18 +51,18 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	{
 		get
 		{
-			if (Edge1._Left != null && Edge1._Left != this)
-				yield return Edge1._Left;
-			if (Edge1._Right != null && Edge1._Right != this)
-				yield return Edge1._Right;
-			if (Edge2._Left != null && Edge2._Left != this)
-				yield return Edge2._Left;
-			if (Edge2._Right != null && Edge2._Right != this)
-				yield return Edge2._Right;
-			if (Edge3._Left != null && Edge3._Left != this)
-				yield return Edge3._Left;
-			if (Edge3._Right != null && Edge3._Right != this)
-				yield return Edge3._Right;
+			if (Edge1.Left != null && Edge1.Left != this)
+				yield return Edge1.Left;
+			if (Edge1.Right != null && Edge1.Right != this)
+				yield return Edge1.Right;
+			if (Edge2.Left != null && Edge2.Left != this)
+				yield return Edge2.Left;
+			if (Edge2.Right != null && Edge2.Right != this)
+				yield return Edge2.Right;
+			if (Edge3.Left != null && Edge3.Left != this)
+				yield return Edge3.Left;
+			if (Edge3.Right != null && Edge3.Right != this)
+				yield return Edge3.Right;
 		}
 	}
 
@@ -102,19 +102,76 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 		Edge1 = mesh.FindOrCreateEdge(vertex1, vertex2);
 		if (Edge1.GetRighthandOffset(vertex3) > mesh.NumericTolerance)
 			Edge1.Flip();
-		Edge1._Left = this;
+		Edge1.Left = this;
 
 		Edge2 = mesh.FindOrCreateEdge(Edge1.Vertex2, vertex3);
 		if (!Edge2.Vertex1.Equals(Edge1.Vertex2))
 			Edge2.Flip();
-		Edge2._Left = this;
+		Edge2.Left = this;
 
 		Edge3 = mesh.FindOrCreateEdge(vertex3, Edge1.Vertex1);
 		if (!Edge3.Vertex1.Equals(Edge2.Vertex2))
 			Edge3.Flip();
-		Edge3._Left = this;
+		Edge3.Left = this;
 
 		(CircumcircleCenter, CircumcircleRadiusSquared) = _RecalculateCircumcircle(vertex1, vertex2, vertex3);
+	}
+
+	/// <summary>
+	/// Constructs a triangle from a list of three edges.
+	/// </summary>
+	/// <param name="edges"></param>
+	internal Triangle(List<Edge<T, Vertex>> edges)
+	{
+		if (edges.Count < 3)
+			throw new ArgumentException("Must provide three connected edges to constructor for triangle.");
+		Edge1 = edges[0];
+		Edge2 = edges[1];
+		Edge3 = edges[2];
+
+		(CircumcircleCenter, CircumcircleRadiusSquared) = _RecalculateCircumcircle(Edge1.Vertex1, Edge1.Vertex2, Edge2.Vertices.Except(Edge1.Vertices).First());
+	}
+
+	/// <summary>
+	/// Constructs a triangle from two connected edges.
+	/// </summary>
+	/// <param name="mesh">The existing triangulation.</param>
+	/// <param name="edge1">An existing edge.</param>
+	/// <param name="edge2">An existing edge.</param>
+	internal Triangle(Mesh<T, Vertex> mesh, Edge<T, Vertex> edge1, Edge<T, Vertex> edge2)
+	{
+		Edge1 = edge1;
+		Edge2 = edge2;
+		Vertex[] vertex = new Vertex[3];
+		if (edge1.Vertex1.Equals(edge2.Vertex1))
+		{
+			vertex[0] = edge1.Vertex2;
+			vertex[1] = edge1.Vertex1;
+			vertex[2] = edge2.Vertex2;
+		}
+		else if (edge1.Vertex1.Equals(edge2.Vertex2))
+		{
+			vertex[0] = edge1.Vertex2;
+			vertex[1] = edge1.Vertex1;
+			vertex[2] = edge2.Vertex1;
+		}
+		else if (edge1.Vertex2.Equals(edge2.Vertex1))
+		{
+			vertex[0] = edge1.Vertex1;
+			vertex[1] = edge1.Vertex2;
+			vertex[2] = edge2.Vertex2;
+		}
+		else if (edge1.Vertex2.Equals(edge2.Vertex2))
+		{
+			vertex[0] = edge1.Vertex1;
+			vertex[1] = edge1.Vertex2;
+			vertex[2] = edge2.Vertex1;
+		}
+		else
+			throw new ArgumentException("Must provide two connected edges to constructor for triangle.");
+		Edge3 = mesh.FindOrCreateEdge(vertex[2], vertex[0]);
+
+		(CircumcircleCenter, CircumcircleRadiusSquared) = _RecalculateCircumcircle(vertex[0], vertex[1], vertex[2]);
 	}
 
 	/// <summary>
@@ -163,7 +220,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// </summary>
 	/// <param name="vertex">A point to check.</param>
 	/// <returns>True if the point exists inside the circumcircle. False if the point is on the boundary of the circumcircle or fully outside of the circumcircle.</returns>
-	public bool IsInsideCircumcircle(Vertex vertex) => Vector2<T>.VectorDifference(vertex, CircumcircleCenter).LengthSquared < CircumcircleRadiusSquared;
+	internal bool IsInsideCircumcircle(Vertex vertex) => Vector2<T>.VectorDifference(vertex, CircumcircleCenter).LengthSquared < CircumcircleRadiusSquared;
 
 	/// <summary>
 	/// Updates the edges composing this triangle to point back to this triangle.
@@ -177,9 +234,9 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 			Vertex otherVertex = vertices.First(v => !v.Equals(edge.Vertex1) && !v.Equals(edge.Vertex2));
 			T righthandOffset = edge.GetRighthandOffset(otherVertex);
 			if (righthandOffset > numericTolerance)
-				edge._Right = this;
+				edge.Right = this;
 			else if (righthandOffset < -numericTolerance)
-				edge._Left = this;
+				edge.Left = this;
 			else
 			{
 				// Degenerate case

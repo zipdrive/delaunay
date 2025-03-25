@@ -27,7 +27,7 @@ public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where V
 	/// <summary>
 	/// Maps the vertices of the mesh to the edges of the mesh with that vertex as an endpoint, sorted in counter-clockwise order.
 	/// </summary>
-	protected Dictionary<Vertex, List<Edge<T, Vertex>> _Vertices = new Dictionary<Vertex, List<Edge<T, Vertex>>>();
+	protected Dictionary<Vertex, List<Edge<T, Vertex>>> _Vertices = new Dictionary<Vertex, List<Edge<T, Vertex>>>();
 
 	/// <summary>
 	/// The vertices of the mesh.
@@ -80,6 +80,140 @@ public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where V
 	}
 
 	/// <summary>
+	/// Adds an edge to the mesh.
+	/// </summary>
+	/// <param name="edge">The edge to insert.</param>
+	protected void _AddEdge(Edge<T, Vertex> edge)
+	{
+		if (!_Edges.Contains(edge))
+		{
+			_Edges.Add(edge);
+
+			List<Edge<T, Vertex>>? connectedEdges;
+			if (_Vertices.TryGetValue(edge.Vertex1, out connectedEdges) && connectedEdges != null)
+			{
+				if (connectedEdges.Count > 1)
+				{
+					for (int k = 0; k < connectedEdges.Count; ++k)
+					{
+						if (connectedEdges[k].GetAngularDifference(edge) < connectedEdges[k].GetAngularDifference(connectedEdges[(k + 1) % connectedEdges.Count]))
+						{
+							connectedEdges.Insert(k + 1, edge);
+							break;
+						}
+					}
+				}
+				else connectedEdges.Add(edge);
+			}
+			else
+			{
+				_Vertices[edge.Vertex1] = new List<Edge<T, Vertex>> { edge };
+			}
+
+			if (_Vertices.TryGetValue(edge.Vertex2, out connectedEdges) && connectedEdges != null)
+			{
+				if (connectedEdges.Count > 1)
+				{
+					for (int k = 0; k < connectedEdges.Count; ++k)
+					{
+						if (connectedEdges[k].GetAngularDifference(edge) < connectedEdges[k].GetAngularDifference(connectedEdges[(k + 1) % connectedEdges.Count]))
+						{
+							connectedEdges.Insert(k + 1, edge);
+							break;
+						}
+					}
+				}
+				else connectedEdges.Add(edge);
+			}
+			else
+			{
+				_Vertices[edge.Vertex2] = new List<Edge<T, Vertex>> { edge };
+			}
+		}
+	}
+
+	/// <summary>
+	/// Adds a triangle to the mesh.
+	/// </summary>
+	/// <param name="triangle">The triangle to add.</param>
+	protected void _AddTriangle(Triangle<T, Vertex> triangle)
+	{
+		if (!_Triangles.Contains(triangle))
+		{
+			_Triangles.Add(triangle);
+			foreach (Edge<T, Vertex> edge in triangle.Edges)
+				_AddEdge(edge);
+			triangle.UpdateAdjacentEdges(NumericTolerance);
+		}
+	}
+
+	/// <summary>
+	/// Removes an edge and any triangles associated with that edge, then returns the edge that was removed.
+	/// </summary>
+	/// <param name="a">A vertex endpoint of the edge.</param>
+	/// <param name="b">A vertex endpoint of the edge.</param>
+	protected Edge<T, Vertex> _RemoveEdge(Vertex a, Vertex b)
+	{
+		Edge<T, Vertex>? edge = _Edges.FirstOrDefault(e => (e.Vertex1.Equals(a) && e.Vertex2.Equals(b)) || (e.Vertex2.Equals(a) && e.Vertex1.Equals(b)));
+		if (edge == null)
+			throw new Exception("Expected to find edge that does not exist.");
+		_RemoveEdge(edge);
+		return edge;
+	}
+
+	/// <summary>
+	/// Removes an edge from the mesh, as well as any triangle attached to that edge.
+	/// </summary>
+	/// <param name="edge">The edge to remove.</param>
+	protected void _RemoveEdge(Edge<T, Vertex> edge)
+	{
+		_Edges.Remove(edge);
+
+		List<Edge<T, Vertex>>? connectedEdges;
+		if (_Vertices.TryGetValue(edge.Vertex1, out connectedEdges) && connectedEdges != null)
+			connectedEdges.Remove(edge);
+		if (_Vertices.TryGetValue(edge.Vertex2, out connectedEdges) && connectedEdges != null)
+			connectedEdges.Remove(edge);
+
+		if (edge.Left != null)
+		{
+			Triangle<T, Vertex> triangle = edge.Left;
+			_Triangles.Remove(triangle);
+
+			foreach (Edge<T, Vertex> otherEdge in triangle.Edges)
+			{
+				if (triangle.Equals(otherEdge.Left))
+					otherEdge.Left = null;
+				if (triangle.Equals(otherEdge.Right))
+					otherEdge.Right = null;
+			}
+		}
+		if (edge.Right != null)
+		{
+			Triangle<T, Vertex> triangle = edge.Right;
+			_Triangles.Remove(triangle);
+
+			foreach (Edge<T, Vertex> otherEdge in triangle.Edges)
+			{
+				if (triangle.Equals(otherEdge.Left))
+					otherEdge.Left = null;
+				if (triangle.Equals(otherEdge.Right))
+					otherEdge.Right = null;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Removes edges from the mesh, as well as any triangle attached to those edges.
+	/// </summary>
+	/// <param name="edge">The edges to remove.</param>
+	protected void _RemoveEdges(IEnumerable<Edge<T, Vertex>> edges)
+	{
+		foreach (Edge<T, Vertex> edge in edges)
+			_RemoveEdge(edge);
+	}
+
+	/// <summary>
 	/// References an existing edge.
 	/// </summary>
 	/// <param name="vertex1">A vertex defining an endpoint of the edge.</param>
@@ -116,30 +250,6 @@ public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where V
 		}
 		return new List<Edge<T, Vertex>>().ToImmutableList();
 	}
-
-	/// <summary>
-	/// Adds a single vertex to the mesh, re-updating the triangulation to compensate.
-	/// </summary>
-	/// <param name="vertex">The vertex to insert.</param>
-	public abstract void Add(Vertex vertex);
-
-	/// <summary>
-	/// Adds multiple vertices to this mesh, re-updating the triangulation to compensate.
-	/// </summary>
-	/// <param name="vertices">The vertices to insert.</param>
-	public abstract void AddRange(IEnumerable<Vertex> vertices);
-
-	/// <summary>
-	/// Removes a single vertex from the mesh, re-updating the triangulation to compensate.
-	/// </summary>
-	/// <param name="vertex">The vertex to remove.</param>
-	public abstract void Remove(Vertex vertex);
-
-	/// <summary>
-	/// Removes multiple vertices from this mesh, re-updating the triangulation to compensate.
-	/// </summary>
-	/// <param name="vertices">The vertices to remove.</param>
-	public abstract void RemoveRange(IEnumerable<Vertex> vertices);
 
 	#endregion Methods
 }

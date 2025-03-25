@@ -10,8 +10,8 @@ namespace DelaunayTriangulation;
 /// <typeparam name="Vertex">The data type for each vertex.</typeparam>
 public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
 {
-    internal Vertex Vertex1;
-    internal Vertex Vertex2;
+    public Vertex Vertex1 { get; private set; }
+    public Vertex Vertex2 { get; private set; }
 
 	/// <summary>
 	/// The vertices of this edge.
@@ -42,22 +42,12 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 	/// <summary>
 	/// The triangle on the left side of this edge.
 	/// </summary>
-	internal Triangle<T, Vertex>? _Left;
-
-	/// <summary>
-	/// The triangle on the left side of this edge.
-	/// </summary>
-	public Triangle<T, Vertex>? Left => _Left;
+	public Triangle<T, Vertex>? Left { get; internal set; }
 
 	/// <summary>
 	/// The triangle on the right side of this edge.
 	/// </summary>
-	internal Triangle<T, Vertex>? _Right;
-
-	/// <summary>
-	/// The triangle on the right side of this edge.
-	/// </summary>
-	public Triangle<T, Vertex>? Right => _Right;
+	public Triangle<T, Vertex>? Right { get; internal set; }
 
 	/// <summary>
 	/// Creates an edge between the two given vertices.
@@ -126,8 +116,8 @@ public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : I
 		Vertex2 = vtemp;
 
 		Triangle<T, Vertex>? ttemp = Left;
-		_Left = Right;
-		_Right = ttemp;
+		Left = Right;
+		Right = ttemp;
 	}
 
 

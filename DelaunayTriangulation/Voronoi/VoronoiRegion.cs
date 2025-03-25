@@ -14,8 +14,14 @@ public class VoronoiRegion<T, Vertex> where T : IFloatingPointIeee754<T> where V
 	/// </summary>
 	public readonly Vertex Centroid;
 
+	/// <summary>
+	/// The regions adjacent to this one.
+	/// </summary>
 	private List<VoronoiRegion<T, Vertex>> _AdjacentRegions = new List<VoronoiRegion<T, Vertex>>();
 
+	/// <summary>
+	/// The regions adjacent to this one.
+	/// </summary>
 	public IEnumerable<VoronoiRegion<T, Vertex>> AdjacentRegions => _AdjacentRegions;
 
 	internal VoronoiRegion(Vertex centroid)

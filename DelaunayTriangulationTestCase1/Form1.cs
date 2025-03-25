@@ -9,8 +9,6 @@ namespace DelaunayTriangulationTestCase1
 {
 	public partial class Form1 : Form
 	{
-		public static ConvexHullMesh<double, Vertex2>? ConvexHullMesh;
-
 		PlotView plot1;
 
 		public Form1()
@@ -42,7 +40,6 @@ namespace DelaunayTriangulationTestCase1
 
 			// Randomly initialize some vertices
 			const int NUM_VERTICES = 100;
-			ConvexHullMesh<double, Vertex2>.NumericTolerance = 1E-20;
 			Random rand = new Random();
 			List<Vertex2> vertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_VERTICES; ++k)
@@ -169,7 +166,7 @@ namespace DelaunayTriangulationTestCase1
 			// Add new vertices
 			const int NUM_ADDITIONAL_VERTICES = 6;
 			List<Vertex2> newVertices = new List<Vertex2>();
-			for (int k = 0; k < NUM_ADDITIONAL_VERTICES / 2; ++k)
+			for (int k = 0; k < NUM_ADDITIONAL_VERTICES; ++k)
 			{
 				newVertices.Add(new Vertex2
 				{
@@ -177,18 +174,8 @@ namespace DelaunayTriangulationTestCase1
 					Y = rand.NextDouble()
 				});
 			}
-			ConvexHullMesh.AddRange(newVertices);
-
-			newVertices = new List<Vertex2>();
-			for (int k = 0; k < NUM_ADDITIONAL_VERTICES / 2; ++k)
-			{
-				newVertices.Add(new Vertex2
-				{
-					X = rand.NextDouble(),
-					Y = rand.NextDouble()
-				});
-			}
-			ConvexHullMesh.AddRange(newVertices);
+			ConvexHullMesh.AddRange(newVertices.Take(NUM_ADDITIONAL_VERTICES / 2));
+			ConvexHullMesh.AddRange(newVertices.Skip(NUM_ADDITIONAL_VERTICES / 2));
 
 			var finalEdges = new HashSet<Edge<double, Vertex2>>(ConvexHullMesh.Edges);
 			var finalTriangles = new HashSet<Triangle<double, Vertex2>>(ConvexHullMesh.Triangles);
@@ -469,6 +456,7 @@ namespace DelaunayTriangulationTestCase1
 			#endregion Display
 
 #endif
+
 		}
 	}
 }

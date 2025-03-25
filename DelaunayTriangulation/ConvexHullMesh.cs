@@ -20,32 +20,6 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 
 	#endregion Properties
 
-	#region Edge searching
-
-	/// <summary>
-	/// References an existing edge.
-	/// </summary>
-	/// <param name="vertex1">A vertex defining an endpoint of the edge.</param>
-	/// <param name="vertex2">A vertex defining an endpoint of the edge.</param>
-	/// <returns>An existing edge, or null if one does not exist.</returns>
-	internal override Edge<T, Vertex>? FindExistingEdge(Vertex vertex1, Vertex vertex2)
-	{
-		return _Edges.FirstOrDefault(edge => (edge.Vertex1.Equals(vertex1) && edge.Vertex2.Equals(vertex2)) || (edge.Vertex2.Equals(vertex1) && edge.Vertex1.Equals(vertex2)));
-	}
-
-	/// <summary>
-	/// References an existing edge, or creates a new one if the edge does not exist.
-	/// </summary>
-	/// <param name="vertex1">A vertex defining an endpoint of the edge.</param>
-	/// <param name="vertex2">A vertex defining an endpoint of the edge.</param>
-	/// <returns>An existing or a new edge.</returns>
-	internal override Edge<T, Vertex> FindOrCreateEdge(Vertex vertex1, Vertex vertex2)
-	{
-		return _Edges.FirstOrDefault(edge => (edge.Vertex1.Equals(vertex1) && edge.Vertex2.Equals(vertex2)) || (edge.Vertex2.Equals(vertex1) && edge.Vertex1.Equals(vertex2))) ?? new Edge<T, Vertex>(vertex1, vertex2);
-	}
-
-	#endregion Edge searching
-
 	#region Initial construction
 
 	/// <summary>
@@ -111,7 +85,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 	/// <param name="vertex">The only vertex in the mesh.</param>
 	internal ConvexHullMesh(Vertex vertex, T numericTolerance) : base(numericTolerance)
 	{
-		_Vertices = new HashSet<Vertex> { vertex };
+		_Vertices = new Dictionary<Vertex, List<Edge<T, Vertex>>> { [vertex] = new List<Edge<T, Vertex>>() };
 		_Edges = new HashSet<Edge<T, Vertex>>();
 		_Triangles = new HashSet<Triangle<T, Vertex>>();
 	}
@@ -127,14 +101,14 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 			throw new ArgumentException("More than 3 vertices passed to Mesh constructor.");
 
 		// Initial vertices
-		_Vertices = new HashSet<Vertex>(vertices);
+		_Vertices = new Dictionary<Vertex, List<Edge<T, Vertex>>>();
 		
 		// Initial edges
 		foreach (Vertex vertex1 in vertices)
 		{
 			foreach (Vertex vertex2 in vertices.TakeWhile(v => !v.Equals(vertex1)))
 			{
-				_Edges.Add(new Edge<T, Vertex>(vertex1, vertex2));
+				_AddEdge(new Edge<T, Vertex>(vertex1, vertex2));
 				
 				// Initial triangles
 				foreach (Vertex vertex3 in vertices.TakeWhile(v => !v.Equals(vertex2)))
@@ -174,7 +148,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 			if (!edge.Vertex2.Equals(nextEdge.Vertex1))
 				throw new Exception("Discontinuity in the convex hull."); // Discontinuity
 
-			if (_Vertices.Any(vertex => edge.GetRighthandOffset(vertex) > NumericTolerance))
+			if (_Vertices.Keys.Any(vertex => edge.GetRighthandOffset(vertex) > NumericTolerance))
 				throw new Exception("Not all vertices in the graph are on the lefthand side of the convex hull edges."); // Not all vertices in graph are on lefthand side
 		}
 	}
@@ -246,20 +220,14 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 		}
 		#endregion Construct influence triangulation
 
-		// Remove all triangles in the influence triangulation
-		_Triangles.ExceptWith(influenceTriangulation);
 		// Remove all edges shared by TWO of the removed triangles (i.e. do not remove the edges on the border of the influence triangulation)
-		_Edges.RemoveWhere(e => influenceTriangulation.Count(t => t.Edges.Contains(e)) > 1);
+		_RemoveEdges(influenceTriangulation.SelectMany(t => t.Edges).Where(e => influenceTriangulation.Count(t => t.Edges.Contains(e)) > 1));
 
 		// Add the new vertex, with triangles connecting it to each edge forming the convex hull of the influence triangulation
-		_Vertices.Add(vertex);
 		List<Edge<T, Vertex>> influenceTriangulationConvexHull = new List<Edge<T, Vertex>>(_Edges.Where(e => influenceTriangulation.Any(t => t.Edges.Contains(e))));
 		foreach (Edge<T, Vertex> influenceTriangulationConvexHullEdge in influenceTriangulationConvexHull)
 		{
-			Triangle<T, Vertex> newTriangle = new Triangle<T, Vertex>(this, influenceTriangulationConvexHullEdge, vertex);
-			_Triangles.Add(newTriangle);
-			_Edges.UnionWith(newTriangle.Edges);
-			newTriangle.UpdateAdjacentEdges(NumericTolerance);
+			_AddTriangle(new Triangle<T, Vertex>(this, influenceTriangulationConvexHullEdge, vertex));
 		}
 	}
 
@@ -355,7 +323,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
         }
 		else 
 		{
-			return _Vertices.Contains(edge.Vertex1) && mesh._Vertices.Contains(edge.Vertex2) ? edge : null;
+			return _Vertices.ContainsKey(edge.Vertex1) && mesh._Vertices.ContainsKey(edge.Vertex2) ? edge : null;
 		}
     }
 
@@ -368,11 +336,11 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
     private Edge<T, Vertex> _FindBaseLREdge(ConvexHullMesh<T, Vertex> mesh)
 	{
         // Construct set of initial vertices
-        (Vertex, T) minA = (_Vertices.First(), _Vertices.First().X + _Vertices.First().Y);
-        (Vertex, T) maxA = (_Vertices.First(), _Vertices.First().X + _Vertices.First().Y);
-        (Vertex, T) minB = (_Vertices.First(), _Vertices.First().X - _Vertices.First().Y);
-        (Vertex, T) maxB = (_Vertices.First(), _Vertices.First().X - _Vertices.First().Y);
-        foreach (Vertex vertex in _Vertices.Skip(1).Concat(mesh._Vertices))
+        (Vertex, T) minA = (_Vertices.Keys.First(), _Vertices.Keys.First().X + _Vertices.Keys.First().Y);
+        (Vertex, T) maxA = (_Vertices.Keys.First(), _Vertices.Keys.First().X + _Vertices.Keys.First().Y);
+        (Vertex, T) minB = (_Vertices.Keys.First(), _Vertices.Keys.First().X - _Vertices.Keys.First().Y);
+        (Vertex, T) maxB = (_Vertices.Keys.First(), _Vertices.Keys.First().X - _Vertices.Keys.First().Y);
+        foreach (Vertex vertex in _Vertices.Keys.Skip(1).Concat(mesh._Vertices.Keys))
         {
             T a = vertex.X + vertex.Y;
             T b = vertex.X - vertex.Y;
@@ -390,7 +358,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
         // Recursion to fill out convex hull
         if (initialVertices.Count > 1)
         {
-			HashSet<Vertex> remainingVertices = new HashSet<Vertex>(_Vertices.Concat(mesh._Vertices));
+			HashSet<Vertex> remainingVertices = new HashSet<Vertex>(_Vertices.Keys.Concat(mesh._Vertices.Keys));
 			remainingVertices.ExceptWith(initialVertices);
 
             for (int k = 0; k < initialVertices.Count; ++k)
@@ -418,30 +386,24 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
         // Get the LL edges
         HashSet<Edge<T, Vertex>> edgesLL = new HashSet<Edge<T, Vertex>>(_Edges);
 
-        // Get the convex hull vertices from each triangulation
-        List<Vertex> convexHullVerticesL = new List<Vertex>(_ConvexHull.Count > 0 ? _ConvexHull.Select(e => e.Vertex1) : _Vertices);
-		List<Vertex> convexHullVerticesR = new List<Vertex>(mesh._ConvexHull.Count > 0 ? mesh._ConvexHull.Select(e => e.Vertex1) : mesh._Vertices);
-
 		// Create the first connecting edge between the two meshes
 		Edge<T, Vertex> convexHullLREdge = _FindBaseLREdge(mesh);
 		Edge<T, Vertex> connectingEdge = convexHullLREdge;
 		Vertex l = connectingEdge.Vertex1;
 		Vertex r = connectingEdge.Vertex2;
-		_Vertices.Add(r);
-		_Edges.Add(connectingEdge);
+
+		// Stores the triangles that bridge the two meshes
+		List<Triangle<T, Vertex>> trianglesLR = new List<Triangle<T, Vertex>>();
 
         // Then, iterate
         while (true)
 		{
 			#region Left candidate vertex
 			SortedList<T, Vertex> potentialCandidateVerticesL = new SortedList<T, Vertex>();
-			foreach (Edge<T, Vertex> edgeL in edgesLL)
+			foreach (Edge<T, Vertex> edgeL in FindAllEdges(l))
 			{
-				if (edgeL.Vertex1.Equals(l) || edgeL.Vertex2.Equals(l))
-				{
-					T edgeAngleL = connectingEdge.GetAngularDifference(edgeL);
-					potentialCandidateVerticesL.Add(edgeAngleL, edgeL.Vertex1.Equals(l) ? edgeL.Vertex2 : edgeL.Vertex1);
-				}
+				T edgeAngleL = connectingEdge.GetAngularDifference(edgeL);
+				potentialCandidateVerticesL.Add(edgeAngleL, edgeL.Vertex1.Equals(l) ? edgeL.Vertex2 : edgeL.Vertex1);
 			}
 
 			(Vertex, Triangle<T, Vertex>)? candidateL = null;
@@ -512,7 +474,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 			}
 			#endregion Right candidate vertex
 
-			#region Insert the vertex, edge, and triangle into this triangulation
+			#region Settle on a final candidate
 			(Vertex, Triangle<T, Vertex>) candidate;
 			if (candidateL != null && candidateR != null)
 			{
@@ -542,28 +504,19 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 			else
 				break;
 
-			_Vertices.Add(candidate.Item1);
-			_Edges.UnionWith(candidate.Item2.Edges);
-			_Triangles.Add(candidate.Item2);
+			trianglesLR.Add(candidate.Item2);
 
-			connectingEdge = FindOrCreateEdge(r, l);
+			connectingEdge = candidate.Item2.Edges.First(e => (e.Vertex1.Equals(l) && e.Vertex2.Equals(r)) || (e.Vertex1.Equals(r) && e.Vertex2.Equals(l)));
 			if (!connectingEdge.Vertex1.Equals(r))
 				connectingEdge.Flip();
-			#endregion Insert the vertex, edge, and triangle into this triangulation
+			#endregion Settle on a final candidate
 		}
 
 		Edge<T, Vertex> convexHullRLEdge = connectingEdge;
 
 		// Insert all vertices and all remaining edges/triangles from the other triangulation
-		_Vertices.UnionWith(mesh._Vertices);
-		_Edges.UnionWith(mesh._Edges);
-		_Triangles.UnionWith(mesh._Triangles);
-
-		// Recalculate edge adjacencies
-		foreach (Triangle<T, Vertex> triangle in Triangles)
-		{
-			triangle.UpdateAdjacentEdges(NumericTolerance);
-		}
+		foreach (Triangle<T, Vertex> triangle in trianglesLR.Concat(mesh._Triangles))
+			_AddTriangle(triangle);
 
         // Recalculate convex hull
         Dictionary<Vertex, Edge<T, Vertex>> convexHullLL = new Dictionary<Vertex, Edge<T, Vertex>>(_ConvexHull.Select(e => new KeyValuePair<Vertex, Edge<T, Vertex>>(e.Vertex1, e)));
@@ -632,7 +585,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 	/// Adds a single vertex to the mesh, re-updating the triangulation to compensate.
 	/// </summary>
 	/// <param name="vertex">The vertex to insert.</param>
-	public override void Add(Vertex vertex)
+	public void Add(Vertex vertex)
 	{
 		int region = IsInsideConvexHull(vertex);
 		if (region > 0)
@@ -654,7 +607,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 	/// Adds multiple vertices to this mesh, re-updating the triangulation to compensate.
 	/// </summary>
 	/// <param name="vertices">The vertices to insert.</param>
-	public override void AddRange(IEnumerable<Vertex> vertices)
+	public void AddRange(IEnumerable<Vertex> vertices)
 	{
 		// Insert all of the vertices which are known to exist inside or on the boundary of the convex hull of this mesh
 		List<Vertex> remainingVertices = new List<Vertex>(vertices);
@@ -725,87 +678,33 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 	#region Removal
 
 	/// <summary>
-	/// Removes an edge and any triangles associated with that edge.
-	/// </summary>
-	/// <param name="a">A vertex endpoint of the edge.</param>
-	/// <param name="b">A vertex endpoint of the edge.</param>
-	private Edge<T, Vertex> _RemoveEdge(Vertex a, Vertex b)
-	{
-		Edge<T, Vertex>? edge = _Edges.FirstOrDefault(e => (e.Vertex1.Equals(a) && e.Vertex2.Equals(b)) || (e.Vertex2.Equals(a) && e.Vertex1.Equals(b)));
-		if (edge == null)
-			throw new Exception("Expected to find edge that does not exist.");
-		_RemoveEdge(edge);
-		return edge;
-	}
-
-	/// <summary>
-	/// Removes an edge and any triangles associated with that edge.
-	/// </summary>
-	/// <param name="edge">The edge to remove.</param>
-	private void _RemoveEdge(Edge<T, Vertex> edge)
-	{
-		_Edges.Remove(edge);
-
-		if (edge.Left != null)
-		{
-			Triangle<T, Vertex> triangle = edge.Left;
-			_Triangles.Remove(triangle);
-			foreach (Edge<T, Vertex> otherEdge in triangle.Edges)
-			{
-				if (triangle.Equals(otherEdge.Left))
-					otherEdge._Left = null;
-				if (triangle.Equals(otherEdge.Right))
-					otherEdge._Right = null;
-			}
-		}
-		if (edge.Right != null)
-		{
-			Triangle<T, Vertex> triangle = edge.Right;
-			_Triangles.Remove(triangle);
-			foreach (Edge<T, Vertex> otherEdge in triangle.Edges)
-			{
-				if (triangle.Equals(otherEdge.Left))
-					otherEdge._Left = null;
-				if (triangle.Equals(otherEdge.Right))
-					otherEdge._Right = null;
-			}
-		}
-	}
-
-	/// <summary>
-	/// Rebuilds a Delaunay triangulation constrained by the edges of a polygon.
-	/// </summary>
-	/// <param name="edges">The edges of the polygon.</param>
-	private void _RebuildConstrainedPolygon(IEnumerable<Edge<T, Vertex>> edges)
-	{
-		throw new NotImplementedException();
-	}
-
-	/// <summary>
 	/// Removes vertices in a clique from the mesh.
 	/// </summary>
 	/// <param name="clique">A clique of vertices.</param>
 	private void _RemoveClique(HashSet<Vertex> clique)
 	{
-		// Locate all edges and triangles connected to the vertices in the clique
-		List<Edge<T, Vertex>> removedEdges = new List<Edge<T, Vertex>>(_Edges.Where(e => clique.Contains(e.Vertex1) || clique.Contains(e.Vertex2)));
-		List<Triangle<T, Vertex>> removedTriangles = new List<Triangle<T, Vertex>>(removedEdges.SelectMany(e =>
+		// Remove the vertices in the clique, record the edges and triangles attached to those vertices
+		HashSet<Edge<T, Vertex>> removedEdges = new HashSet<Edge<T, Vertex>>();
+		HashSet<Triangle<T, Vertex>> removedTriangles = new HashSet<Triangle<T, Vertex>>();
+		foreach (Vertex vertex in clique)
 		{
-			List<Triangle<T, Vertex>> result = new List<Triangle<T, Vertex>>();
-			if (e.Left != null)
-				result.Add(e.Left);
-			if (e.Right != null)
-				result.Add(e.Right);
-			return result;
-		}));
-
-		// Remove the vertices in the clique, as well as the edges and triangles attached to those vertices
-		_Vertices.ExceptWith(clique);
+			if (_Vertices.Remove(vertex, out List<Edge<T, Vertex>>? connectedEdges) && connectedEdges != null)
+			{
+				removedEdges.UnionWith(connectedEdges);
+				foreach (Edge<T, Vertex> removedEdge in connectedEdges)
+				{
+					if (removedEdge.Left != null)
+						removedTriangles.Add(removedEdge.Left);
+					if (removedEdge.Right != null)
+						removedTriangles.Add(removedEdge.Right);
+				}
+			}
+		}
 		foreach (Edge<T, Vertex> removedEdge in removedEdges)
 			_RemoveEdge(removedEdge);
 
 		// Construct a polygon from the surrounding outer edges
-		IEnumerable<Edge<T, Vertex>> outerEdges = _Edges.Where(e => removedTriangles.Any(removedTriangle => removedTriangle.Edges.Contains(e)));
+		IEnumerable<Edge<T, Vertex>> outerEdges = removedTriangles.SelectMany(t => t.Edges).Distinct().Except(removedEdges);
 		if (outerEdges.Any())
 		{
 			Dictionary<Vertex, Edge<T, Vertex>> outerEdgeFirstVertex = new Dictionary<Vertex, Edge<T, Vertex>>(outerEdges.Select(e => new KeyValuePair<Vertex, Edge<T, Vertex>>(e.Vertex1, e)));
@@ -852,12 +751,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 
 				if (firstVertex.Equals(lastVertex))
 				{
-					// Rebuild the polygon
-					Mesh<T, Vertex> polygonMesh = SimplePolygonMesh<T, Vertex>.Construct(polygon, NumericTolerance);
-
-					// Shove the edges and triangles into this mesh
-					_Edges.UnionWith(polygonMesh.Edges);
-					_Triangles.UnionWith(polygonMesh.Triangles);
+					
 				}
 				else
 				{
@@ -868,7 +762,11 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 		}
 	}
 
-	public override void Remove(Vertex vertex)
+	/// <summary>
+	/// Removes a single vertex from the mesh, re-calculating the triangulation to compensate.
+	/// </summary>
+	/// <param name="vertex">The vertex to remove.</param>
+	public void Remove(Vertex vertex)
 	{
 		if (_Vertices.Count <= 1)
 		{
@@ -880,7 +778,11 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 		_RemoveClique(new HashSet<Vertex> { vertex });
 	}
 
-	public override void RemoveRange(IEnumerable<Vertex> vertices)
+	/// <summary>
+	/// Removes vertices from the mesh, re-calculating the triangulation to compensate.
+	/// </summary>
+	/// <param name="vertices">The vertices to remove.</param>
+	public void RemoveRange(IEnumerable<Vertex> vertices)
 	{
 		HashSet<Vertex> remainingVertices = new HashSet<Vertex>(vertices);
 		while (remainingVertices.Count > 0)
