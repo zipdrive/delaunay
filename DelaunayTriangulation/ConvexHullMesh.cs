@@ -678,12 +678,129 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 	#region Removal
 
 	/// <summary>
-	/// Removes vertices in a clique from the mesh.
+	/// Search for the edge on the convex hull of the combination of this mesh and another mesh,
+	/// where Vertex1 is a vertex of this mesh and Vertex2 is a vertex of the other mesh.
 	/// </summary>
-	/// <param name="clique">A clique of vertices.</param>
-	private void _RemoveClique(HashSet<Vertex> clique)
+	/// <param name="mesh">The other mesh.</param>
+	/// <param name="edge">The edge to inspect.</param>
+	/// <returns>An edge on the convex hull that bridges this mesh with the other mesh. Null if no such edge was found.</returns>
+	private (Edge<T, Vertex>, Edge<T, Vertex>)? _FindPolygonOrientationRepresentativeEdgesHelper(Edge<T, Vertex> edge, HashSet<Vertex> remainingVertices, IEnumerable<Edge<T, Vertex>> allEdges)
 	{
-		
+		// Find the vertex with the largest righthand offset from this edge
+		(Vertex, T)? bestCandidate = null;
+		foreach (Vertex vertex in remainingVertices)
+		{
+			T offset = edge.GetRighthandOffset(vertex);
+			if (offset > NumericTolerance)
+			{
+				if (bestCandidate == null || bestCandidate.Value.Item2 < offset)
+				{
+					bestCandidate = (vertex, offset);
+				}
+			}
+			else if (offset <= NumericTolerance && offset >= -NumericTolerance)
+			{
+				Vector2<T> edgeVector = edge.Vector;
+				T edgeVectorDot = edgeVector.Dot(Vector2<T>.VectorDifference(edge.Vertex1, vertex));
+				if (edgeVectorDot >= -NumericTolerance && edgeVectorDot < edgeVector.LengthSquared)
+				{
+					if (bestCandidate == null || bestCandidate.Value.Item2 < offset)
+					{
+						bestCandidate = (vertex, offset);
+					}
+				}
+			}
+		}
+
+		if (bestCandidate != null)
+		{
+			Vertex bestVertex = bestCandidate.Value.Item1;
+			remainingVertices.Remove(bestVertex);
+
+			// Add two edges from each endpoint to the new vertex
+			Edge<T, Vertex> edge1 = new Edge<T, Vertex>(edge.Vertex1, bestVertex);
+			Edge<T, Vertex> edge2 = new Edge<T, Vertex>(bestVertex, edge.Vertex2);
+			return _FindPolygonOrientationRepresentativeEdgesHelper(edge1, remainingVertices, allEdges) ?? 
+				_FindPolygonOrientationRepresentativeEdgesHelper(edge2, remainingVertices, allEdges);
+		}
+		else
+		{
+			Vertex convexHullVertex = edge.Vertex1;
+			IEnumerable<Edge<T, Vertex>> edgesAdjacentToConvexHullVertex = allEdges.Where(e => e.Vertices.Contains(convexHullVertex));
+			if (edgesAdjacentToConvexHullVertex.Count() > 1)
+			{
+				Edge<T, Vertex> edge1 = edgesAdjacentToConvexHullVertex.First();
+				Edge<T, Vertex> edge2 = edgesAdjacentToConvexHullVertex.Last();
+				Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(this, edge1, edge2);
+				T orientation = triangle.Orientation;
+				if (orientation > NumericTolerance)
+				{
+					if (edge1.Vertex1.Equals(convexHullVertex))
+						edge1.Flip();
+					if (edge2.Vertex2.Equals(convexHullVertex))
+						edge2.Flip();
+					return (edge1, edge2);
+				}
+				else if (orientation < -NumericTolerance)
+				{
+					if (edge2.Vertex1.Equals(convexHullVertex))
+						edge2.Flip();
+					if (edge1.Vertex2.Equals(convexHullVertex))
+						edge1.Flip();
+					return (edge2, edge1);
+				}
+			}
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// .
+	/// </summary>
+	/// <param name="mesh">The other mesh.</param>
+	/// <returns>An edge on the convex hull that bridges this mesh with the other mesh. Null if no such edge was found.</returns>
+	private (Edge<T, Vertex>, Edge<T, Vertex>)? _FindPolygonOrientationRepresentativeEdges(IEnumerable<Edge<T, Vertex>> edges)
+	{
+		// Construct set of initial vertices
+		IEnumerable<Vertex> vertices = edges.SelectMany(e => e.Vertices).Distinct();
+		Vertex firstVertex = vertices.First();
+		(Vertex, T) minA = (firstVertex, firstVertex.X + firstVertex.Y);
+		(Vertex, T) maxA = (firstVertex, firstVertex.X + firstVertex.Y);
+		(Vertex, T) minB = (firstVertex, firstVertex.X - firstVertex.Y);
+		(Vertex, T) maxB = (firstVertex, firstVertex.X - firstVertex.Y);
+		foreach (Vertex vertex in vertices.Skip(1).Concat(vertices))
+		{
+			T a = vertex.X + vertex.Y;
+			T b = vertex.X - vertex.Y;
+			if (a < minA.Item2)
+				minA = (vertex, a);
+			if (a > maxA.Item2)
+				maxA = (vertex, a);
+			if (b < minB.Item2)
+				minB = (vertex, b);
+			if (b > maxB.Item2)
+				maxB = (vertex, b);
+		}
+		List<Vertex> initialVertices = new List<Vertex>(new Vertex[] { maxA.Item1, minB.Item1, minA.Item1, maxB.Item1 }.Distinct());
+
+		// Recursion to fill out convex hull
+		if (initialVertices.Count > 1)
+		{
+			HashSet<Vertex> remainingVertices = new HashSet<Vertex>(vertices);
+			remainingVertices.ExceptWith(initialVertices);
+
+			for (int k = 0; k < initialVertices.Count; ++k)
+			{
+				Vertex vertex1 = initialVertices[k];
+				Vertex vertex2 = initialVertices[(k + 1) % initialVertices.Count];
+
+				Edge<T, Vertex> edge = new Edge<T, Vertex>(vertex1, vertex2);
+				(Edge<T, Vertex>, Edge<T, Vertex>)? result = _FindPolygonOrientationRepresentativeEdgesHelper(edge, remainingVertices, edges);
+				if (result != null)
+					return result.Value;
+			}
+		}
+		return null;
 	}
 
 	/// <summary>
@@ -701,25 +818,22 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
         // Remove the vertices in the clique, record the edges and triangles attached to those vertices
         HashSet<Edge<T, Vertex>> removedEdges = new HashSet<Edge<T, Vertex>>();
         HashSet<Triangle<T, Vertex>> removedTriangles = new HashSet<Triangle<T, Vertex>>();
-        foreach (Vertex vertex in clique)
+        if (_Vertices.Remove(vertex, out List<Edge<T, Vertex>>? connectedEdges) && connectedEdges != null)
         {
-            if (_Vertices.Remove(vertex, out List<Edge<T, Vertex>>? connectedEdges) && connectedEdges != null)
+            removedEdges.UnionWith(connectedEdges);
+            foreach (Edge<T, Vertex> removedEdge in connectedEdges)
             {
-                removedEdges.UnionWith(connectedEdges);
-                foreach (Edge<T, Vertex> removedEdge in connectedEdges)
-                {
-                    if (removedEdge.Left != null)
-                        removedTriangles.Add(removedEdge.Left);
-                    if (removedEdge.Right != null)
-                        removedTriangles.Add(removedEdge.Right);
-                }
+                if (removedEdge.Left != null)
+                    removedTriangles.Add(removedEdge.Left);
+                if (removedEdge.Right != null)
+                    removedTriangles.Add(removedEdge.Right);
             }
         }
         foreach (Edge<T, Vertex> removedEdge in removedEdges)
             _RemoveEdge(removedEdge);
 
         // Construct a polygon from the surrounding outer edges
-        IEnumerable<Edge<T, Vertex>> unorderedOuterEdges = removedTriangles.SelectMany(t => t.Edges.Where(e => !removedEdges.Contains(e)));
+        HashSet<Edge<T, Vertex>> unorderedOuterEdges = new HashSet<Edge<T, Vertex>>(removedTriangles.SelectMany(t => t.Edges.Where(e => !removedEdges.Contains(e))));
         int unorderedOuterEdgesCount = unorderedOuterEdges.Count();
         if (unorderedOuterEdgesCount == 0 || (unorderedOuterEdgesCount == 1 && _Edges.Count == 1))
         {
@@ -733,7 +847,7 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
             Edge<T, Vertex> newConvexHullEdge = unorderedOuterEdges.First();
             int startIndex = _ConvexHull.FindIndex(removedEdges.Contains);
             int endIndex = _ConvexHull.FindLastIndex(removedEdges.Contains);
-            if (clique.Contains(_ConvexHull[startIndex].Vertex2))
+            if (vertex.Equals(_ConvexHull[startIndex].Vertex2))
             {
                 if (newConvexHullEdge.Vertex1.Equals(_ConvexHull[startIndex].Vertex1))
                     newConvexHullEdge.Flip();
@@ -751,96 +865,109 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
         }
         else
         {
-            #region Construct surrounding polygon
-            List<Edge<T, Vertex>> outerEdges = new List<Edge<T, Vertex>>();
-            Dictionary<Vertex, Edge<T, Vertex>> outerEdgeFirstVertex = new Dictionary<Vertex, Edge<T, Vertex>>(unorderedOuterEdges.Select(e => new KeyValuePair<Vertex, Edge<T, Vertex>>(e.Vertex1, e)));
-            Dictionary<Vertex, Edge<T, Vertex>> outerEdgeLastVertex = new Dictionary<Vertex, Edge<T, Vertex>>(unorderedOuterEdges.Select(e => new KeyValuePair<Vertex, Edge<T, Vertex>>(e.Vertex2, e)));
+			#region Construct surrounding polygon
 
-            Vertex firstVertex = outerEdgeFirstVertex.Keys.First();
-            Vertex lastVertex = firstVertex;
+			List<Edge<T, Vertex>> outerEdges; // Edges should be arranged counter-clockwise
+			(Edge<T, Vertex>, Edge<T, Vertex>)? startingEdges = _FindPolygonOrientationRepresentativeEdges(unorderedOuterEdges);
 
-            while (outerEdgeFirstVertex.Count > 0)
-            {
-                Edge<T, Vertex>? precedingPolygonEdge, nextPolygonEdge;
-                if (outerEdgeFirstVertex.TryGetValue(lastVertex, out nextPolygonEdge) && nextPolygonEdge != null)
-                {
-                    outerEdgeFirstVertex.Remove(nextPolygonEdge.Vertex1);
-                    outerEdgeLastVertex.Remove(nextPolygonEdge.Vertex2);
-                    outerEdges.Add(nextPolygonEdge);
-                    lastVertex = nextPolygonEdge.Vertex2;
-                }
-                else if (outerEdgeLastVertex.TryGetValue(lastVertex, out nextPolygonEdge) && nextPolygonEdge != null)
-                {
-                    outerEdgeFirstVertex.Remove(nextPolygonEdge.Vertex1);
-                    outerEdgeLastVertex.Remove(nextPolygonEdge.Vertex2);
-                    nextPolygonEdge.Flip();
-                    outerEdges.Add(nextPolygonEdge);
-                    lastVertex = nextPolygonEdge.Vertex2;
-                }
-                else if (outerEdgeLastVertex.TryGetValue(firstVertex, out precedingPolygonEdge) && precedingPolygonEdge != null)
-                {
-                    outerEdgeFirstVertex.Remove(precedingPolygonEdge.Vertex1);
-                    outerEdgeLastVertex.Remove(precedingPolygonEdge.Vertex2);
-                    outerEdges.Insert(0, precedingPolygonEdge);
-                    firstVertex = precedingPolygonEdge.Vertex1;
-                }
-                else if (outerEdgeFirstVertex.TryGetValue(firstVertex, out precedingPolygonEdge) && precedingPolygonEdge != null)
-                {
-                    outerEdgeFirstVertex.Remove(precedingPolygonEdge.Vertex1);
-                    outerEdgeLastVertex.Remove(precedingPolygonEdge.Vertex2);
-                    precedingPolygonEdge.Flip();
-                    outerEdges.Insert(0, precedingPolygonEdge);
-                    firstVertex = precedingPolygonEdge.Vertex1;
-                }
-                else throw new Exception("Deletion of vertex clique created torus.");
-            }
-            #endregion Construct surrounding polygon
+			#region Handle co-linear case
+			if (startingEdges == null)
+			{
+				// All points are co-linear, so no intrapolygon triangulation is necessary
+				// The only thing that needs to be done is to fix the convex hull
+				throw new NotImplementedException();
+				return;
+			}
+			#endregion Handle co-linear case
 
-            #region Triangulate the polygon
-            // Using algorithm https://doi.org/10.1145/304893.304969
-            // Possible input from https://doi.org/10.1016/j.comgeo.2010.10.001 ??
-            // Find possible ears
-            PriorityQueue<Triangle<T, Vertex>, T> possibleEars = new PriorityQueue<Triangle<T, Vertex>, T>();
+			// The two starting edges are arranged counter-clockwise
+			outerEdges = new List<Edge<T, Vertex>> { startingEdges.Value.Item1, startingEdges.Value.Item2 };
+			unorderedOuterEdges.ExceptWith(outerEdges);
+			while (!outerEdges[outerEdges.Count - 1].Vertex2.Equals(outerEdges[0].Vertex1))
+			{
+				Edge<T, Vertex>? nextEdge = unorderedOuterEdges.FirstOrDefault(e => e.Vertices.Contains(outerEdges[outerEdges.Count - 1].Vertex2));
+				if (nextEdge == null)
+					break;
+				if (nextEdge.Vertex2.Equals(outerEdges[outerEdges.Count - 1].Vertex2))
+					nextEdge.Flip();
+				outerEdges.Add(nextEdge);
+			}
+			while (!outerEdges[outerEdges.Count - 1].Vertex2.Equals(outerEdges[0].Vertex1))
+			{
+				Edge<T, Vertex>? precedingEdge = unorderedOuterEdges.FirstOrDefault(e => e.Vertices.Contains(outerEdges[0].Vertex1));
+				if (precedingEdge == null)
+					break;
+				if (precedingEdge.Vertex2.Equals(outerEdges[0].Vertex1))
+					precedingEdge.Flip();
+				outerEdges.Add(precedingEdge);
+			}
+			(Vertex, Vertex)? convexHullGap = outerEdges[0].Vertex1.Equals(outerEdges[outerEdges.Count - 1].Vertex2) ? null : (outerEdges[outerEdges.Count - 1].Vertex2, outerEdges[0].Vertex1);
+			#endregion Construct surrounding polygon
+
+			#region Triangulate the polygon
+			// Using algorithm https://doi.org/10.1145/304893.304969
+			// Possible input from https://doi.org/10.1016/j.comgeo.2010.10.001 ??
+
+			// Find possible ears
+			PriorityQueue<Triangle<T, Vertex>, T> possibleEars = new PriorityQueue<Triangle<T, Vertex>, T>();
             for (int k = possibleEars.Count - 1; k >= 0; --k)
             {
-                Triangle<T, Vertex> triangle = k < outerEdges.Count - 1 ? new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[k + 1]) : new Triangle<T, Vertex>(this, outerEdges[k], firstVertex);
+                Triangle<T, Vertex> triangle = k < outerEdges.Count - 1 ? new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[k + 1]) : new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[0].Vertex1);
                 T orientation = triangle.Orientation;
-                possibleEars.Enqueue(triangle, orientation > NumericTolerance ? triangle.Power(vertex) / orientation : T.PositiveInfinity);
+                possibleEars.Enqueue(triangle, orientation > NumericTolerance ? -triangle.Power(vertex) / orientation : T.PositiveInfinity);
             }
+			while (possibleEars.Count > 0)
+			{
+				Triangle<T, Vertex> nextEar = possibleEars.Dequeue();
+				_AddTriangle(nextEar);
 
-            #endregion Triangulate the polygon
+				// Reconstruct the polygon
+				int index1 = outerEdges.IndexOf(nextEar.Edge1);
+				int index2 = outerEdges.IndexOf(nextEar.Edge2);
+				int index3 = outerEdges.IndexOf(nextEar.Edge3);
+				if (index3 < 0)
+				{
+					outerEdges.RemoveAt(index1);
+					outerEdges.Insert(index1, nextEar.Edge3);
+					outerEdges.RemoveAt(index2);
+				}
+				else if (index1 < 0)
+				{
+					outerEdges.RemoveAt(index2);
+					outerEdges.Insert(index2, nextEar.Edge1);
+					outerEdges.RemoveAt(index3);
+				}
+				else if (index2 < 0)
+				{
+					outerEdges.RemoveAt(index3);
+					outerEdges.Insert(index3, nextEar.Edge2);
+					outerEdges.RemoveAt(index1);
+				}
+				else
+				{
+					break;
+				}
 
-            if (!firstVertex.Equals(lastVertex))
-            {
-                // Vertices of clique laid on the convex hull
+				// Reconstruct the priority queue
+				possibleEars = new PriorityQueue<Triangle<T, Vertex>, T>();
+				for (int k = possibleEars.Count - 1; k >= 0; --k)
+				{
+					Triangle<T, Vertex> triangle = k < outerEdges.Count - 1 ? new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[k + 1]) : new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[0].Vertex1);
+					T orientation = triangle.Orientation;
+					possibleEars.Enqueue(triangle, orientation > NumericTolerance ? -triangle.Power(vertex) / orientation : T.PositiveInfinity);
+				}
+			}
 
-                int startIndex = _ConvexHull.FindIndex(removedEdges.Contains);
-                int endIndex = _ConvexHull.FindLastIndex(removedEdges.Contains);
-                Edge<T, Vertex> startEdge = _ConvexHull[startIndex];
-                Edge<T, Vertex> endEdge = _ConvexHull[endIndex];
+			#endregion Triangulate the polygon
 
-                // Create edge to bridge the ends of the polygon
-                Edge<T, Vertex> finalOuterEdge = FindOrCreateEdge(startEdge.Vertex1, endEdge.Vertex2);
-                // Determine the sequence of edges that bridge the gap in the convex hull
-                List<Edge<T, Vertex>> convexHullBridgingEdges;
-                if (!outerEdges.Any(e => finalOuterEdge.GetRighthandOffset(e.Vertex1) > NumericTolerance))
-                {
-                    outerEdges.Add(finalOuterEdge);
-                    convexHullBridgingEdges = new List<Edge<T, Vertex>> { finalOuterEdge };
-                }
+			#region Fix the convex hull
 
-                if (clique.Contains(_ConvexHull[startIndex].Vertex2))
-                {
-                    _ConvexHull.RemoveRange(startIndex, endIndex - startIndex + 1);
-                    // TODO
-                }
-                else
-                {
-                    _ConvexHull.RemoveRange(endIndex, _ConvexHull.Count - endIndex);
-                    _ConvexHull.RemoveRange(0, startIndex + 1);
-                    // TODO
-                }
-            }
+			if (convexHullGap != null)
+			{
+				_ConvexHull.RemoveAll(e => !_Edges.Contains(e));
+			}
+
+			#endregion Fix the convex hull
         }
     }
 

@@ -265,4 +265,19 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 			}
 		}
 	}
+
+
+	public override bool Equals(object? obj)
+	{
+		if (obj is Triangle<T, Vertex> other)
+		{
+			return Edges.Intersect(other.Edges).Count() == 3;
+		}
+		return false;
+	}
+
+	public override int GetHashCode()
+	{
+		return Edge1.GetHashCode() ^ Edge2.GetHashCode() ^ Edge3.GetHashCode();
+	}
 }
