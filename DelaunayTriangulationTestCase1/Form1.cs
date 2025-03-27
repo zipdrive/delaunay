@@ -324,7 +324,7 @@ namespace DelaunayTriangulationTestCase1
 			#endregion Setup
 
 			// Randomly initialize some vertices
-			const int NUM_INITIAL_VERTICES = 20;
+			const int NUM_INITIAL_VERTICES = 10;
 			Random rand = new Random();
 			List<Vertex2> vertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_INITIAL_VERTICES; ++k)
@@ -336,18 +336,18 @@ namespace DelaunayTriangulationTestCase1
 
 
 			// Construct a mesh from them
-			ConvexHullMesh = ConvexHullMesh<double, Vertex2>.Construct(vertices);
-			var initialEdges = new HashSet<Edge<double, Vertex2>>(ConvexHullMesh.Edges);
-			var initialTriangles = new HashSet<Triangle<double, Vertex2>>(ConvexHullMesh.Triangles);
+			ConvexHullMesh<double, Vertex2> mesh = ConvexHullMesh<double, Vertex2>.Construct(vertices);
+			var initialEdges = new HashSet<Edge<double, Vertex2>>(mesh.Edges);
+			var initialTriangles = new HashSet<Triangle<double, Vertex2>>(mesh.Triangles);
 
 			// Add new vertices
-			const int NUM_REMOVED_VERTICES = 6;
+			const int NUM_REMOVED_VERTICES = 1;
 			List<Vertex2> removeVertices = new List<Vertex2>(vertices.Take(NUM_REMOVED_VERTICES));
-			ConvexHullMesh.RemoveRange(removeVertices.Take(NUM_REMOVED_VERTICES / 2));
-			ConvexHullMesh.RemoveRange(removeVertices.Skip(NUM_REMOVED_VERTICES / 2));
+			mesh.RemoveRange(removeVertices.Take(NUM_REMOVED_VERTICES / 2));
+			mesh.RemoveRange(removeVertices.Skip(NUM_REMOVED_VERTICES / 2));
 
-			var finalEdges = new HashSet<Edge<double, Vertex2>>(ConvexHullMesh.Edges);
-			var finalTriangles = new HashSet<Triangle<double, Vertex2>>(ConvexHullMesh.Triangles);
+			var finalEdges = new HashSet<Edge<double, Vertex2>>(mesh.Edges);
+			var finalTriangles = new HashSet<Triangle<double, Vertex2>>(mesh.Triangles);
 
 			#region Display
 			// Display the edges onto the plot
@@ -415,9 +415,34 @@ namespace DelaunayTriangulationTestCase1
 				}
 				model.Annotations.Add(edgeLine);
 			}
+            foreach (Edge<double, Vertex2> edge in mesh.Boundary)
+            {
+                LineAnnotation edgeLine = new LineAnnotation
+                {
+                    Type = LineAnnotationType.LinearEquation,
+                    LineStyle = LineStyle.Solid,
+                    Color = OxyColor.FromArgb(0xFF, 0x00, 0x00, 0x00),
+                    StrokeThickness = 3.0,
+                    MinimumX = Math.Min(edge.Vertex1.X, edge.Vertex2.X),
+                    MaximumX = Math.Max(edge.Vertex1.X, edge.Vertex2.X),
+                    MinimumY = Math.Min(edge.Vertex1.Y, edge.Vertex2.Y),
+                    MaximumY = Math.Max(edge.Vertex1.Y, edge.Vertex2.Y)
+                };
+                if (edgeLine.MinimumX == edge.Vertex1.X)
+                {
+                    edgeLine.Slope = (edge.Vertex2.Y - edge.Vertex1.Y) / (edgeLine.MaximumX - edgeLine.MinimumX);
+                    edgeLine.Intercept = edge.Vertex1.Y - edgeLine.MinimumX * edgeLine.Slope;
+                }
+                else
+                {
+                    edgeLine.Slope = (edge.Vertex1.Y - edge.Vertex2.Y) / (edgeLine.MaximumX - edgeLine.MinimumX);
+                    edgeLine.Intercept = edge.Vertex2.Y - edgeLine.MinimumX * edgeLine.Slope;
+                }
+                model.Annotations.Add(edgeLine);
+            }
 
-			// Draw triangles
-			foreach (Triangle<double, Vertex2> triangle in initialTriangles.Intersect(finalTriangles))
+            // Draw triangles
+            foreach (Triangle<double, Vertex2> triangle in initialTriangles.Intersect(finalTriangles))
 			{
 				PolygonAnnotation triangleLines = new PolygonAnnotation
 				{
@@ -434,16 +459,28 @@ namespace DelaunayTriangulationTestCase1
 				PolygonAnnotation triangleLines = new PolygonAnnotation
 				{
 					LineStyle = LineStyle.Dot,
-					Stroke = OxyColor.FromRgb(0xFF, 0x00, 0x00),
+					Stroke = OxyColor.FromRgb(0x00, 0xFF, 0x00),
 					StrokeThickness = 2.0,
-					Fill = OxyColor.FromArgb(0x10, 0xFF, 0x00, 0x00)
+					Fill = OxyColor.FromArgb(0x10, 0x00, 0xFF, 0x00)
 				};
 				triangleLines.Points.AddRange(triangle.Vertices.Select(v => new DataPoint(v.X, v.Y)));
 				model.Annotations.Add(triangleLines);
 			}
+            foreach (Triangle<double, Vertex2> triangle in initialTriangles.Except(finalTriangles))
+            {
+                PolygonAnnotation triangleLines = new PolygonAnnotation
+                {
+                    LineStyle = LineStyle.Dot,
+                    Stroke = OxyColor.FromRgb(0xFF, 0x00, 0x00),
+                    StrokeThickness = 2.0,
+                    Fill = OxyColor.FromArgb(0x10, 0xFF, 0x00, 0x00)
+                };
+                triangleLines.Points.AddRange(triangle.Vertices.Select(v => new DataPoint(v.X, v.Y)));
+                model.Annotations.Add(triangleLines);
+            }
 
-			// Draw vertices
-			foreach (Vertex2 vertex in ConvexHullMesh.Vertices)
+            // Draw vertices
+            foreach (Vertex2 vertex in mesh.Vertices)
 			{
 				model.Annotations.Add(new PointAnnotation
 				{
@@ -453,10 +490,21 @@ namespace DelaunayTriangulationTestCase1
 					Fill = OxyColor.FromRgb(0x00, 0x00, 0x00)
 				});
 			}
-			#endregion Display
+
+            foreach (Vertex2 vertex in removeVertices)
+            {
+                model.Annotations.Add(new PointAnnotation
+                {
+                    X = vertex.X,
+                    Y = vertex.Y,
+                    Size = 3.0,
+                    Fill = OxyColor.FromRgb(0xFF, 0x00, 0x00)
+                });
+            }
+            #endregion Display
 
 #endif
 
-		}
+        }
 	}
 }

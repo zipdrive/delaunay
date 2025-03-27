@@ -44,10 +44,15 @@ public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where V
 	/// </summary>
 	public IEnumerable<Edge<T, Vertex>> Edges => _Edges;
 
-	/// <summary>
-	/// The triangles of the mesh.
-	/// </summary>
-	protected HashSet<Triangle<T, Vertex>> _Triangles = new HashSet<Triangle<T, Vertex>>();
+    /// <summary>
+    /// The edges that form the boundary of the mesh, ordered in a counter-clockwise direction.
+    /// </summary>
+    public abstract IEnumerable<Edge<T, Vertex>> Boundary { get; }
+
+    /// <summary>
+    /// The triangles of the mesh.
+    /// </summary>
+    protected HashSet<Triangle<T, Vertex>> _Triangles = new HashSet<Triangle<T, Vertex>>();
 
 	/// <summary>
 	/// The triangles of the mesh.
