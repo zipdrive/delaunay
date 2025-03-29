@@ -2,7 +2,7 @@ using System;
 using System.Numerics;
 using System.Security.Cryptography.X509Certificates;
 
-namespace DelaunayTriangulation;
+namespace Retriangulator2D;
 
 /// <summary>
 /// A 2D vector.

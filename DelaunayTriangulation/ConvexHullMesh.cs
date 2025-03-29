@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.Design;
 using System.Numerics;
 
-namespace DelaunayTriangulation;
+namespace Retriangulator2D;
 
 /// <summary>
 /// A Delaunay triangulation where the boundary is the convex hull of the vertices.

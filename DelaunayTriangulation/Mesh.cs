@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DelaunayTriangulation;
+namespace Retriangulator2D;
 
 /// <summary>
 /// A Delaunay triangulation of vertices.

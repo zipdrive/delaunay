@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DelaunayTriangulation", "DelaunayTriangulation\DelaunayTriangulation.csproj", "{582E48BE-8067-463B-8E4B-5FBFBDEDE3D7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Retriangulator2D", "DelaunayTriangulation\Retriangulator2D.csproj", "{582E48BE-8067-463B-8E4B-5FBFBDEDE3D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DelaunayTriangulationTestCase1", "DelaunayTriangulationTestCase1\DelaunayTriangulationTestCase1.csproj", "{7831C7CD-AD27-438F-A8C2-7E610A4178EA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DelaunayTriangulationTestCase1", "DelaunayTriangulationTestCase1\DelaunayTriangulationTestCase1.csproj", "{7831C7CD-AD27-438F-A8C2-7E610A4178EA}"
 	ProjectSection(ProjectDependencies) = postProject
 		{582E48BE-8067-463B-8E4B-5FBFBDEDE3D7} = {582E48BE-8067-463B-8E4B-5FBFBDEDE3D7}
 	EndProjectSection

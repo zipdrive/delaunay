@@ -5,35 +5,35 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DelaunayTriangulation.Voronoi;
+namespace Retriangulator2D.Voronoi;
 
-public class VoronoiRegion<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+public class VoronoiRegion<T, Centroid> where T : IFloatingPointIeee754<T> where Centroid : IVertex2<T>
 {
 	/// <summary>
 	/// The centroid of the Voronoi region.
 	/// </summary>
-	public readonly Vertex Centroid;
+	public readonly Centroid RegionCentroid;
 
 	/// <summary>
 	/// The regions adjacent to this one.
 	/// </summary>
-	private List<VoronoiRegion<T, Vertex>> _AdjacentRegions = new List<VoronoiRegion<T, Vertex>>();
+	private List<VoronoiRegion<T, Centroid>> _AdjacentRegions = new List<VoronoiRegion<T, Centroid>>();
 
 	/// <summary>
 	/// The regions adjacent to this one.
 	/// </summary>
-	public IEnumerable<VoronoiRegion<T, Vertex>> AdjacentRegions => _AdjacentRegions;
+	public IEnumerable<VoronoiRegion<T, Centroid>> AdjacentRegions => _AdjacentRegions;
 
-	internal VoronoiRegion(Vertex centroid)
+	internal VoronoiRegion(Centroid centroid)
 	{
-		Centroid = centroid;
+		RegionCentroid = centroid;
 	}
 
 	/// <summary>
 	/// Adds an adjacent region to this one.
 	/// </summary>
 	/// <param name="adjacentRegion">The adjacent region to register.</param>
-	internal void AddAdjacentRegion(VoronoiRegion<T, Vertex> adjacentRegion)
+	internal void AddAdjacentRegion(VoronoiRegion<T, Centroid> adjacentRegion)
 	{
 		_AdjacentRegions.Add(adjacentRegion);
 	}

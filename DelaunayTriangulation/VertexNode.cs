@@ -5,7 +5,7 @@ using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DelaunayTriangulation;
+namespace Retriangulator2D;
 
 /// <summary>
 /// A vertex node storing a median vertex and the edges connected to that vertex, and divides a number of child vertices based on the coordinate of the median vertex.

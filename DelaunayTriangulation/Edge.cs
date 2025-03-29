@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-namespace DelaunayTriangulation;
+namespace Retriangulator2D;
 
 /// <summary>
 /// An edge between two vertices.

@@ -1,7 +1,7 @@
 using System;
 using System.Numerics;
 
-namespace DelaunayTriangulation;
+namespace Retriangulator2D;
 
 /// <summary>
 /// A triangle of three vertices.
@@ -22,7 +22,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// The radius of the circumcircle defined by these three vertices, squared.
 	/// </summary>
-	private readonly T CircumcircleRadiusSquared;
+	public readonly T CircumcircleRadiusSquared;
 
 	/// <summary>
 	/// The vertices of this triangle.
@@ -254,39 +254,9 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <returns>The power test of the point.</returns>
 	internal T Power(Vertex vertex, T numericTolerance)
 	{
-		Vertex[] vertices;
-		if (Edge1.Vertex1.Equals(Edge2.Vertex1))
-			vertices = new Vertex[] { Edge1.Vertex2, Edge1.Vertex1, Edge2.Vertex2 };
-		else if (Edge1.Vertex2.Equals(Edge2.Vertex2))
-			vertices = new Vertex[] { Edge1.Vertex1, Edge1.Vertex2, Edge2.Vertex1 };
-		else if (Edge1.Vertex1.Equals(Edge2.Vertex2))
-			vertices = new Vertex[] { Edge1.Vertex2, Edge1.Vertex1, Edge2.Vertex1 };
-		else
-			vertices = new Vertex[] { Edge1.Vertex1, Edge1.Vertex2, Edge2.Vertex2 };
-
-		Vector2<T> vector01 = Vector2<T>.VectorDifference(vertices[0], vertices[1]);
-		Vector2<T> vector12 = Vector2<T>.VectorDifference(vertices[1], vertices[2]);
-		T orientation = vector01.CrossMagnitude(vector12);
-		if (orientation > numericTolerance)
-		{
-			Vector2<T> vector20 = Vector2<T>.VectorDifference(vertices[2], vertices[0]);
-			Vector2<T> vector03 = Vector2<T>.VectorDifference(vertices[0], vertex);
-			Vector2<T> vector13 = Vector2<T>.VectorDifference(vertices[1], vertex);
-			Vector2<T> vector23 = Vector2<T>.VectorDifference(vertices[2], vertex);
-
-			T power0 = vertices[0].X * vertices[0].X + vertices[0].Y * vertices[0].Y;
-			T power1 = vertices[1].X * vertices[1].X + vertices[1].Y * vertices[1].Y;
-			T power2 = vertices[2].X * vertices[2].X + vertices[2].Y * vertices[2].Y;
-			T power3 = vertex.X * vertex.X + vertex.Y * vertex.Y;
-
-			return power3 - (power0 * vector12.CrossMagnitude(vector13)
-				+ power1 * vector20.CrossMagnitude(vector23)
-				+ power2 * vector01.CrossMagnitude(vector03)) / orientation;
-		}
-		else
-		{
-			return T.PositiveInfinity;
-		}
+		return Orientation > numericTolerance ? 
+			CircumcircleRadiusSquared - Vector2<T>.VectorDifference(vertex, CircumcircleCenter).LengthSquared : 
+			T.PositiveInfinity;
     }
 
     /// <summary>

@@ -1,7 +1,7 @@
 using OxyPlot;
 using OxyPlot.Series;
 using OxyPlot.WindowsForms;
-using DelaunayTriangulation;
+using Retriangulator2D;
 using OxyPlot.Annotations;
 using OxyPlot.Axes;
 using System.Reflection;
@@ -398,7 +398,7 @@ namespace DelaunayTriangulationTestCase1
 		private void RunRemoveVertices()
 		{
 			// Randomly initialize some vertices
-			const int NUM_INITIAL_VERTICES = 10;
+			const int NUM_INITIAL_VERTICES = 50;
 			Random rand = new Random();
 			InitialVertices = new List<Vertex2>();
 			for (int k = 0; k < NUM_INITIAL_VERTICES; ++k)
@@ -409,7 +409,7 @@ namespace DelaunayTriangulationTestCase1
 				});
 
 			// Randomly select some vertices to remove
-			const int NUM_REMOVED_VERTICES = 1;
+			const int NUM_REMOVED_VERTICES = 10;
 			RemoveVertices = new List<Vertex2>(InitialVertices.Take(NUM_REMOVED_VERTICES));
 
 			// Run the algorithm
@@ -585,6 +585,30 @@ namespace DelaunayTriangulationTestCase1
 					Fill = OxyColor.FromRgb(0xFF, 0x00, 0x00)
 				});
 			}
+
+			// Display circumcircle overlay
+			/*
+			foreach (var triangle in mesh.Triangles)
+			{
+				model.Annotations.Add(new EllipseAnnotation
+				{
+					X = triangle.CircumcircleCenter.X,
+					Y = triangle.CircumcircleCenter.Y,
+					Width = 2.0 * Math.Sqrt(triangle.CircumcircleRadiusSquared),
+					Height = 2.0 * Math.Sqrt(triangle.CircumcircleRadiusSquared),
+					Stroke = OxyColor.FromArgb(0x80, 0x00, 0xFF, 0x00),
+					StrokeThickness = 1.0,
+					Fill = OxyColor.FromArgb(0x10, 0x00, 0xFF, 0x00)
+				});
+				model.Annotations.Add(new PointAnnotation
+				{
+					X = triangle.CircumcircleCenter.X,
+					Y = triangle.CircumcircleCenter.Y,
+					Size = 3.0,
+					Fill = OxyColor.FromRgb(0x00, 0xFF, 0x00)
+				});
+			}
+			*/
 			#endregion Display
 
 			model.InvalidatePlot(true);
