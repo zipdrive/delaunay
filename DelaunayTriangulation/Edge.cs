@@ -8,7 +8,7 @@ namespace Retriangulator2D;
 /// </summary>
 /// <typeparam name="T">The floating-point type used for numeric calculations.</typeparam>
 /// <typeparam name="Vertex">The data type for each vertex.</typeparam>
-public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+public class Edge<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IPoint2<T>
 {
     public Vertex Vertex1 { get; private set; }
     public Vertex Vertex2 { get; private set; }

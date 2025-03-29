@@ -38,7 +38,7 @@ public class Vector2<T> where T : IFloatingPointIeee754<T>
 	/// <param name="start">The start of the vector.</param>
 	/// <param name="end">The end of the vector.</param>
 	/// <returns>The vector from the given start position to the given end position.</returns>
-	public static Vector2<T> VectorDifference(IVertex2<T> start, IVertex2<T> end) => new Vector2<T>
+	public static Vector2<T> VectorDifference(IPoint2<T> start, IPoint2<T> end) => new Vector2<T>
 	{
 		X = end.X - start.X,
 		Y = end.Y - start.Y

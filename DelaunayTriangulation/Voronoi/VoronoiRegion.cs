@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Retriangulator2D.Voronoi;
 
-public class VoronoiRegion<T, Centroid> where T : IFloatingPointIeee754<T> where Centroid : IVertex2<T>
+public class VoronoiRegion<T, Centroid> where T : IFloatingPointIeee754<T> where Centroid : IPoint2<T>
 {
 	/// <summary>
 	/// The centroid of the Voronoi region.

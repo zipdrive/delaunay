@@ -12,19 +12,19 @@ namespace Retriangulator2D.Voronoi;
 /// </summary>
 /// <typeparam name="T">The floating-point type used for numeric calculations.</typeparam>
 /// <typeparam name="Centroid">The data type for each region's centroid.</typeparam>
-public class VoronoiDiagram<T, Centroid> where T : IFloatingPointIeee754<T> where Centroid : IVertex2<T>
+public class VoronoiDiagram<T, Centroid> where T : IFloatingPointIeee754<T> where Centroid : IPoint2<T>
 {
 	/// <summary>
 	/// The vertices of the Voronoi diagram.
 	/// Correspond to the circumcenters of the triangles in the Delaunay triangulation.
 	/// </summary>
-	protected HashSet<IVertex2<T>> _Vertices;
+	protected HashSet<IPoint2<T>> _Vertices;
 
 	/// <summary>
 	/// The vertices of the Voronoi diagram.
 	/// Correspond to the circumcenters of the triangles in the Delaunay triangulation.
 	/// </summary>
-	public IEnumerable<IVertex2<T>> Vertices => _Vertices;
+	public IEnumerable<IPoint2<T>> Vertices => _Vertices;
 
 	/// <summary>
 	/// The edges of the Voronoi diagram. An edge may be a VoronoiBoundedEdge (if finite) or VoronoiUnboundedEdge (if infinite).
@@ -106,9 +106,9 @@ public class VoronoiDiagram<T, Centroid> where T : IFloatingPointIeee754<T> wher
 		);
 	}
 
-	internal VoronoiDiagram(IEnumerable<IVertex2<T>> vertices, HashSet<VoronoiEdge<T, Centroid>> edges, IEnumerable<VoronoiRegion<T, Centroid>> regions)
+	internal VoronoiDiagram(IEnumerable<IPoint2<T>> vertices, HashSet<VoronoiEdge<T, Centroid>> edges, IEnumerable<VoronoiRegion<T, Centroid>> regions)
 	{
-		_Vertices = new HashSet<IVertex2<T>>(vertices);
+		_Vertices = new HashSet<IPoint2<T>>(vertices);
 		_Edges = edges;
 		_Regions = new List<VoronoiRegion<T, Centroid>>(regions);
 	}

@@ -6,7 +6,7 @@ This is a library for performing Delaunay triangulations. The main motivations o
 
 ## Documentation
 ### Mesh
-A `Mesh` object is the Delaunay triangulation of a set of vertices. All `Mesh` types require two type arguments: `T` and `Vertex`. `T` is the floating-point type to use for numeric calculations (e.g. `float`, `double`). `Vertex` must be a type that implements the interface `IVertex2<T>`. One of the motivations behind the development of this library was to have support for different levels of precision, as well as to be able to store data other than coordinates associated with a vertex.
+A `Mesh` object is the Delaunay triangulation of a set of vertices. All `Mesh` types require two type arguments: `T` and `Vertex`. `T` is the floating-point type to use for numeric calculations (e.g. `float`, `double`). `Vertex` must be a type that implements the interface `IPoint2<T>`. One of the motivations behind the development of this library was to have support for different levels of precision, as well as to be able to store data other than coordinates associated with a vertex.
 
 There are two kinds of `Mesh` objects: `ConvexHullMesh` (for basic Delaunay triangulations) and `SimplePolygonMesh` (for the Delaunay triangulation of a simple polygon). To construct a Mesh object, use one of the following static methods:
 
@@ -76,7 +76,7 @@ The vertices of the triangle.
 
 The triangles adjacent to this one.
 
-    IVertex2<T> CircumcircleCenter
+    IPoint2<T> CircumcircleCenter
 
 The center of the circumcircle defined by the three vertices of the triangle.
 

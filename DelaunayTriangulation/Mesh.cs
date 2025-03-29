@@ -13,7 +13,7 @@ namespace Retriangulator2D;
 /// </summary>
 /// <typeparam name="T">The floating-point type used for numeric calculations.</typeparam>
 /// <typeparam name="Vertex">The data type for each vertex.</typeparam>
-public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IPoint2<T>
 {
 	#region Properties
 

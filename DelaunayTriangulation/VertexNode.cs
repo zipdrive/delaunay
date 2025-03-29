@@ -12,7 +12,7 @@ namespace Retriangulator2D;
 /// </summary>
 /// <typeparam name="T"></typeparam>
 /// <typeparam name="Vertex"></typeparam>
-internal abstract class VertexNode<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+internal abstract class VertexNode<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IPoint2<T>
 {
 	/// <summary>
 	/// The median vertex.
@@ -57,7 +57,7 @@ internal abstract class VertexNode<T, Vertex> where T : IFloatingPointIeee754<T>
 /// </summary>
 /// <typeparam name="T"></typeparam>
 /// <typeparam name="Vertex"></typeparam>
-internal class VertexXNode<T, Vertex> : VertexNode<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+internal class VertexXNode<T, Vertex> : VertexNode<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IPoint2<T>
 {
 	private VertexYNode<T, Vertex>? _Left;
 	private VertexYNode<T, Vertex>? _Right;
@@ -217,7 +217,7 @@ internal class VertexXNode<T, Vertex> : VertexNode<T, Vertex> where T : IFloatin
 /// </summary>
 /// <typeparam name="T"></typeparam>
 /// <typeparam name="Vertex"></typeparam>
-internal class VertexYNode<T, Vertex> : VertexNode<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+internal class VertexYNode<T, Vertex> : VertexNode<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IPoint2<T>
 {
 	private VertexXNode<T, Vertex>? _Left;
 	private VertexXNode<T, Vertex>? _Right;

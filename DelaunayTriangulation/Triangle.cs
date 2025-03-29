@@ -8,7 +8,7 @@ namespace Retriangulator2D;
 /// </summary>
 /// <typeparam name="T">The floating-point type used for numeric calculations.</typeparam>
 /// <typeparam name="Vertex">The data type for each vertex.</typeparam>
-public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IVertex2<T>
+public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex : IPoint2<T>
 {
 	internal readonly Edge<T, Vertex> Edge1;
 	internal readonly Edge<T, Vertex> Edge2;
@@ -17,7 +17,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// The center of the circumcircle defined by these three vertices.
 	/// </summary>
-	public readonly IVertex2<T> CircumcircleCenter;
+	public readonly IPoint2<T> CircumcircleCenter;
 
 	/// <summary>
 	/// The radius of the circumcircle defined by these three vertices, squared.
