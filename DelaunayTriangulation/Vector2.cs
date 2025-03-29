@@ -142,6 +142,13 @@ public class Vector2<T> where T : IFloatingPointIeee754<T>
     /// <returns>The dot product of the two vectors.</returns>
     public T Dot(Vector2<T> other) => X * other.X + Y * other.Y;
 
+	/// <summary>
+	/// Calculates the magnitude of the cross product with another vector.
+	/// </summary>
+	/// <param name="other">The other vector.</param>
+	/// <returns>The magnitude of the cross product of the two vectors.</returns>
+	public T CrossMagnitude(Vector2<T> other) => X * other.Y - Y * other.X;
+
     /// <summary>
     /// Normalizes the vector.
     /// </summary>

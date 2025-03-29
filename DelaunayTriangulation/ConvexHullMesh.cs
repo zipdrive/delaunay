@@ -729,11 +729,11 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 		else
 		{
 			Vertex convexHullVertex = edge.Vertex1;
-			IEnumerable<Edge<T, Vertex>> edgesAdjacentToConvexHullVertex = allEdges.Where(e => e.Vertices.Contains(convexHullVertex));
+			Edge<T, Vertex>[] edgesAdjacentToConvexHullVertex = allEdges.Where(e => e.Vertices.Contains(convexHullVertex)).ToArray();
 			if (edgesAdjacentToConvexHullVertex.Count() > 1)
 			{
-				Edge<T, Vertex> edge1 = edgesAdjacentToConvexHullVertex.First();
-				Edge<T, Vertex> edge2 = edgesAdjacentToConvexHullVertex.Last();
+				Edge<T, Vertex> edge1 = edgesAdjacentToConvexHullVertex[0];
+				Edge<T, Vertex> edge2 = edgesAdjacentToConvexHullVertex[1];
 				Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(this, edge1, edge2);
 				T orientation = triangle.Orientation;
 				if (orientation > NumericTolerance)
@@ -742,6 +742,8 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 						edge1.Flip();
 					if (edge2.Vertex2.Equals(convexHullVertex))
 						edge2.Flip();
+					if (!edge1.Vertex2.Equals(edge2.Vertex1))
+						throw new Exception();
 					return (edge1, edge2);
 				}
 				else if (orientation < -NumericTolerance)
@@ -750,6 +752,8 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 						edge2.Flip();
 					if (edge1.Vertex2.Equals(convexHullVertex))
 						edge1.Flip();
+					if (!edge2.Vertex2.Equals(edge1.Vertex1))
+						throw new Exception();
 					return (edge2, edge1);
 				}
 			}
@@ -821,27 +825,27 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 		{
 			edge2.Flip();
 		}
+		if (!edge1.Vertex2.Equals(edge2.Vertex1))
+			throw new Exception();
 		return (edge1, edge2);
 	}
 
 	private void _RemoveRetriangulateSubpolygonHelper(Vertex removedVertex, List<Edge<T, Vertex>> outerEdges)
 	{
-        // Using algorithm https://doi.org/10.1145/304893.304969
-        // Possible input from https://doi.org/10.1016/j.comgeo.2010.10.001 ??
+		// Papers to consider for future enhancements:
+		// https://doi.org/10.1145/304893.304969
+		// https://doi.org/10.1016/j.comgeo.2010.10.001
 
         // Find possible ears
         PriorityQueue<Triangle<T, Vertex>, T> possibleEars = new PriorityQueue<Triangle<T, Vertex>, T>();
         for (int k = outerEdges.Count - 1; k >= 0; --k)
         {
             Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[(k + 1) % outerEdges.Count]);
-            T orientation = triangle.Orientation;
-			if (orientation > NumericTolerance)
-				possibleEars.Enqueue(triangle, -triangle.Power(removedVertex) / orientation);
+            possibleEars.Enqueue(triangle, triangle.Power(removedVertex, NumericTolerance));
         }
 
-        while (possibleEars.Count > 0)
+		while (possibleEars.TryDequeue(out Triangle<T, Vertex>? nextEar, out T? nextEarPriority) && nextEar != null && nextEarPriority != null && nextEarPriority < T.PositiveInfinity)
         {
-            Triangle<T, Vertex> nextEar = possibleEars.Dequeue();
             _AddTriangle(nextEar);
 
             // Reconstruct the polygon
@@ -871,15 +875,13 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
                 break;
             }
 
-            // Reconstruct the priority queue
+			// Reconstruct the priority queue
             possibleEars = new PriorityQueue<Triangle<T, Vertex>, T>();
             for (int k = outerEdges.Count - 1; k >= 0; --k)
             {
                 Triangle<T, Vertex> triangle = new Triangle<T, Vertex>(this, outerEdges[k], outerEdges[(k + 1) % outerEdges.Count]);
-                T orientation = triangle.Orientation;
-                if (orientation > NumericTolerance)
-                    possibleEars.Enqueue(triangle, -triangle.Power(removedVertex) / orientation);
-            }
+				possibleEars.Enqueue(triangle, triangle.Power(removedVertex, NumericTolerance));
+			}
         }
     }
 
@@ -1003,9 +1005,16 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 
 					if (!EqualityComparer<Vertex>.Default.Equals(vertexOnConvexHull, default(Vertex)))
 					{
+						Edge<T, Vertex> replacementEdge1 = FindOrCreateEdge(convexHullBridgingEdges[index].Vertex1, vertexOnConvexHull);
+						if (!replacementEdge1.Vertex2.Equals(vertexOnConvexHull))
+							replacementEdge1.Flip();
+						Edge<T, Vertex> replacementEdge2 = FindOrCreateEdge(vertexOnConvexHull, convexHullBridgingEdges[index].Vertex2);
+						if (!replacementEdge2.Vertex1.Equals(vertexOnConvexHull))
+							replacementEdge2.Flip();
+
 						verticesNotOnConvexHull.Remove(vertexOnConvexHull);
-						convexHullBridgingEdges.Insert(index + 1, FindOrCreateEdge(convexHullBridgingEdges[index].Vertex1, vertexOnConvexHull));
-						convexHullBridgingEdges.Insert(index + 2, FindOrCreateEdge(vertexOnConvexHull, convexHullBridgingEdges[index].Vertex2));
+						convexHullBridgingEdges.Insert(index + 1, replacementEdge1);
+						convexHullBridgingEdges.Insert(index + 2, replacementEdge2);
 						convexHullBridgingEdges.RemoveAt(index);
 					}
 					else ++index;
@@ -1023,8 +1032,39 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 					_ConvexHull.RemoveAt(endIndex);
 					_ConvexHull.InsertRange(endIndex, convexHullBridgingEdges);
 				}
+				foreach (Edge<T, Vertex> convexHullEdge in convexHullBridgingEdges)
+					_AddEdge(convexHullEdge);
 
 				#endregion Construct the new convex hull
+
+				#region Sanity checks
+
+				// Checks to ensure that outerEdges and convexHullBridgingEdges form a continuous loop
+
+				if (convexHullBridgingEdges[0].Vertex1.Equals(convexHullGap.Value.Item2)
+					&& convexHullBridgingEdges[convexHullBridgingEdges.Count - 1].Vertex2.Equals(convexHullGap.Value.Item1)) 
+				{
+					// We want:
+					// outerEdges[0].Vertex1 == convexHullBridgingEdges[-1].Vertex2
+					// outerEdges[-1].Vertex2 == convexHullBridgingEdges[0].Vertex1
+
+					// To accomplish this, flip all outerEdges and reverse the ordering
+					outerEdges.Reverse();
+					foreach (Edge<T, Vertex> insideBoundaryEdge in outerEdges)
+						insideBoundaryEdge.Flip();
+					convexHullGap = (convexHullGap.Value.Item2, convexHullGap.Value.Item1);
+				}
+				else if (convexHullBridgingEdges[0].Vertex1.Equals(convexHullGap.Value.Item1)
+					&& convexHullBridgingEdges[convexHullBridgingEdges.Count - 1].Vertex2.Equals(convexHullGap.Value.Item2))
+				{
+					// Already has desired properties, so do nothing
+				}
+				else
+				{
+					throw new Exception("Gap in edges of hole formed by deleting vertex does not align with edges bridging the gap in the convex hull formed by deleting vertex.");
+				}
+
+				#endregion Sanity checks
 
 				#region Retriangulate each sub-polygon
 
@@ -1034,20 +1074,21 @@ public class ConvexHullMesh<T, Vertex> : Mesh<T, Vertex> where T : IFloatingPoin
 					subpolygon.Add(insideBoundaryEdge);
 					Vertex[] insideBoundaryEndpoints = new Vertex[] { subpolygon[0].Vertex1, insideBoundaryEdge.Vertex2 };
 
-					for (int k = 0; k < convexHullBridgingEdges.Count; ++k)
+					for (int k = convexHullBridgingEdges.Count - 1; k >= 0; --k)
 					{
 						Edge<T, Vertex> convexHullEdge = convexHullBridgingEdges[k];
-						Vertex[] convexHullBoundaryEndpoints = new Vertex[] { convexHullBridgingEdges[0].Vertex1, convexHullEdge.Vertex2 };
+						Vertex[] convexHullBoundaryEndpoints = new Vertex[] 
+						{
+							convexHullEdge.Vertex1, 
+							convexHullBridgingEdges[convexHullBridgingEdges.Count - 1].Vertex2  
+						};
 
                         if (insideBoundaryEndpoints.Intersect(convexHullBoundaryEndpoints).Count() == 2)
 						{
-							if (insideBoundaryEndpoints[0].Equals(convexHullBoundaryEndpoints[0]))
-							{
-								foreach (Edge<T, Vertex> subpolygonEdge in subpolygon)
-									subpolygonEdge.Flip();
-							}
+							List<Edge<T, Vertex>> subpolygonInsideBoundaryEdges = new List<Edge<T, Vertex>>(subpolygon);
+							List<Edge<T, Vertex>> subpolygonConvexHullEdges = convexHullBridgingEdges[k..convexHullBridgingEdges.Count];
 
-							subpolygon.AddRange(convexHullBridgingEdges[0..(k+1)]);
+							subpolygon.AddRange(convexHullBridgingEdges[k..convexHullBridgingEdges.Count]);
 							convexHullBridgingEdges.RemoveRange(k, convexHullBridgingEdges.Count - k);
 							if (subpolygon.Count >= 3) // Skip triangulating "polygons" with 2 edges
 								_RemoveRetriangulateSubpolygonHelper(vertex, subpolygon);
