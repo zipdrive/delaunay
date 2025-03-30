@@ -34,7 +34,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// The edges of this triangle.
 	/// </summary>
-	internal IEnumerable<Edge<T, Vertex>> Edges
+	public IEnumerable<Edge<T, Vertex>> Edges
 	{
 		get
 		{
