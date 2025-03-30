@@ -17,12 +17,12 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// The center of the circumcircle defined by these three vertices.
 	/// </summary>
-	public readonly IPoint2<T> CircumcircleCenter;
+	public SimplePoint2<T> CircumcircleCenter { get; private set; }
 
 	/// <summary>
 	/// The radius of the circumcircle defined by these three vertices, squared.
 	/// </summary>
-	public readonly T CircumcircleRadiusSquared;
+	public T CircumcircleRadiusSquared { get; private set; }
 
 	/// <summary>
 	/// The vertices of this triangle.
@@ -192,7 +192,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// Calculates the circumcircle center and radius.
 	/// </summary>
-	private (SimpleVertex2<T>, T) _RecalculateCircumcircle(Vertex vertex1, Vertex vertex2, Vertex vertex3)
+	private (SimplePoint2<T>, T) _RecalculateCircumcircle(Vertex vertex1, Vertex vertex2, Vertex vertex3)
 	{
 		// Calculate circumcircle
 		T two = T.CreateChecked(2);
@@ -206,7 +206,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 		T angle3 = T.Acos(-offset31.Dot(offset23));
 		T sin3 = T.Sin(two * angle3);
 		T normalizationConstant = T.One / (sin1 + sin2 + sin3);
-		SimpleVertex2<T> center = new SimpleVertex2<T>
+		SimplePoint2<T> center = new SimplePoint2<T>
 		{
 			X = normalizationConstant * (vertex1.X * sin1 + vertex2.X * sin2 + vertex3.X * sin3),
 			Y = normalizationConstant * (vertex1.Y * sin1 + vertex2.Y * sin2 + vertex3.Y * sin3)

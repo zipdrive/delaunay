@@ -7,15 +7,19 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>Retriangulator2D</Title>
     <Authors>zipdrive</Authors>
-    <PackageProjectUrl></PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/zipdrive/delaunay</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/zipdrive/delaunay</RepositoryUrl>
     <PackageTags>delaunay, triangulation, voronoi, geometry</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <Description>A 2D Delaunay triangulation library, with a focus on making updates to the triangulation by inserting or deleting vertices.</Description>
+    <Description>A 2D Delaunay triangulation library. The primary application of this library as opposed to similar libraries for triangulation are as follows:
+1. Provide support for different levels of numeric precision.
+2. Provide the ability to store additional data about vertices in a way that is easy to retrieve.
+3. Provide support for easily adding and removing vertices from a triangulation after initial construction.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <NeutralLanguage>en</NeutralLanguage>
     <PackageId>Retriangulator2D</PackageId>
+    <Copyright></Copyright>
   </PropertyGroup>
 
   <ItemGroup>

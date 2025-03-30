@@ -25,7 +25,7 @@ public interface IPoint2<T> where T : IFloatingPointIeee754<T>
 /// A simple vertex.
 /// </summary>
 /// <typeparam name="T">The floating-point type, used for numeric calculation.</typeparam>
-internal class SimpleVertex2<T> : IPoint2<T> where T : IFloatingPointIeee754<T>
+public class SimplePoint2<T> : IPoint2<T> where T : IFloatingPointIeee754<T>
 {
 	public required T X { get; set; }
 
