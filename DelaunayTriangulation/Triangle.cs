@@ -25,11 +25,64 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	public T CircumcircleRadiusSquared { get; private set; }
 
 	/// <summary>
-	/// The vertices of this triangle.
+	/// The vertices of this triangle, ordered counter-clockwise.
 	/// </summary>
-	public IEnumerable<Vertex> Vertices => 
-		new Vertex[] { Edge1.Vertex1, Edge1.Vertex2, Edge2.Vertex1, Edge2.Vertex2, Edge3.Vertex1, Edge3.Vertex2 }
-		.Distinct();
+	public IEnumerable<Vertex> Vertices
+	{
+		get
+		{
+			if (Orientation > T.Zero)
+			{
+				// Natural ordering is counter-clockwise
+				yield return Edge1.Vertex1;
+				if (Edge2.Vertex1.Equals(Edge1.Vertex2))
+				{
+					yield return Edge2.Vertex1;
+					yield return Edge2.Vertex2;
+				}
+				else if (Edge2.Vertex2.Equals(Edge1.Vertex2))
+				{
+					yield return Edge2.Vertex2;
+					yield return Edge2.Vertex1;
+				}
+				else if (Edge2.Vertex1.Equals(Edge1.Vertex1))
+				{
+					yield return Edge2.Vertex2;
+					yield return Edge1.Vertex2;
+				}
+				else if (Edge2.Vertex2.Equals(Edge1.Vertex1))
+				{
+					yield return Edge2.Vertex1;
+					yield return Edge1.Vertex2;
+				}
+			}
+			else
+			{
+				// Natural ordering is clockwise, so reverse
+				yield return Edge1.Vertex1;
+				if (Edge3.Vertex1.Equals(Edge1.Vertex2))
+				{
+					yield return Edge3.Vertex1;
+					yield return Edge3.Vertex2;
+				}
+				else if (Edge3.Vertex2.Equals(Edge1.Vertex2))
+				{
+					yield return Edge3.Vertex2;
+					yield return Edge3.Vertex1;
+				}
+				else if (Edge3.Vertex1.Equals(Edge1.Vertex1))
+				{
+					yield return Edge3.Vertex2;
+					yield return Edge1.Vertex2;
+				}
+				else if (Edge3.Vertex2.Equals(Edge1.Vertex1))
+				{
+					yield return Edge3.Vertex1;
+					yield return Edge1.Vertex2;
+				}
+			}
+		}
+	}
 
 	/// <summary>
 	/// The edges of this triangle.

@@ -12,7 +12,9 @@
     <RepositoryUrl>https://github.com/zipdrive/delaunay</RepositoryUrl>
     <PackageTags>delaunay, triangulation, voronoi, geometry</PackageTags>
     <PackageIcon>icon.png</PackageIcon>
-    <Description>A 2D Delaunay triangulation library. The primary application of this library as opposed to similar libraries for triangulation are as follows:
+    <Description>A 2D Delaunay triangulation library.
+
+The primary application of this library as opposed to similar libraries for triangulation are as follows:
 1. Provide support for different levels of numeric precision.
 2. Provide the ability to store additional data about vertices in a way that is easy to retrieve.
 3. Provide support for easily adding and removing vertices from a triangulation after initial construction.</Description>
@@ -20,6 +22,8 @@
     <NeutralLanguage>en</NeutralLanguage>
     <PackageId>Retriangulator2D</PackageId>
     <Copyright></Copyright>
+    <Version>1.2.0</Version>
+    <PackageReleaseNotes>Exposed SimplePoint2 class and Triangle.Edges property.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
