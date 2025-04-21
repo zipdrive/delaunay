@@ -100,7 +100,7 @@ The Triangle class represents a triangle in the Delaunay triangulation. It requi
 #### Properties
     IEnumerable<Vertex> Vertices { get; }
 
-The vertices of the triangle.
+The vertices of the triangle. Enumerated in counter-clockwise order.
 
     IEnumerable<Edge<T, Vertex>> Edges { get; }
 
