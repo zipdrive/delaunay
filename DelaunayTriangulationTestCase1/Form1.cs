@@ -72,6 +72,10 @@ namespace DelaunayTriangulationTestCase1
 #if TESTCASE_REMOVE_MANY_ALGORITHM
 			RunRemoveVertices();
 #endif
+
+#if TESTCASE_INTERPOLATE_ALGORITHM
+			RunInterpolation();
+#endif
 		}
 
 
@@ -583,6 +587,214 @@ namespace DelaunayTriangulationTestCase1
 					Y = vertex.Y,
 					Size = 3.0,
 					Fill = OxyColor.FromRgb(0xFF, 0x00, 0x00)
+				});
+			}
+
+			// Display circumcircle overlay
+			/*
+			foreach (var triangle in mesh.Triangles)
+			{
+				model.Annotations.Add(new EllipseAnnotation
+				{
+					X = triangle.CircumcircleCenter.X,
+					Y = triangle.CircumcircleCenter.Y,
+					Width = 2.0 * Math.Sqrt(triangle.CircumcircleRadiusSquared),
+					Height = 2.0 * Math.Sqrt(triangle.CircumcircleRadiusSquared),
+					Stroke = OxyColor.FromArgb(0x80, 0x00, 0xFF, 0x00),
+					StrokeThickness = 1.0,
+					Fill = OxyColor.FromArgb(0x10, 0x00, 0xFF, 0x00)
+				});
+				model.Annotations.Add(new PointAnnotation
+				{
+					X = triangle.CircumcircleCenter.X,
+					Y = triangle.CircumcircleCenter.Y,
+					Size = 3.0,
+					Fill = OxyColor.FromRgb(0x00, 0xFF, 0x00)
+				});
+			}
+			*/
+			#endregion Display
+
+			model.InvalidatePlot(true);
+		}
+
+#endif
+
+#if TESTCASE_INTERPOLATE_ALGORITHM
+
+		List<Vertex2> Vertices;
+		List<Vertex2> Points;
+
+		private void ClickSaveButton(object sender, EventArgs e)
+		{
+			try
+			{
+				string json = JsonSerializer.Serialize(new Dictionary<string, List<Vertex2>>
+				{
+					["vertices"] = Vertices,
+					["points"] = Points
+				});
+				using FileStream fstream = File.OpenWrite($"interpolate_test_{DateTime.UtcNow:yyyyMMddHHmmssfff}.json");
+				using StreamWriter writer = new StreamWriter(fstream);
+				writer.Write(json);
+			}
+			catch (Exception ex)
+			{
+				label1.Text = ex.Message;
+			}
+		}
+
+		private void ClickLoadRunButton(object sender, EventArgs e)
+		{
+			if (openFileDialog1.ShowDialog() == DialogResult.OK)
+			{
+				List<Vertex2> vertices, points;
+				try
+				{
+					using StreamReader reader = new StreamReader(openFileDialog1.FileName);
+					string json = reader.ReadToEnd();
+					var obj = JsonSerializer.Deserialize<Dictionary<string, List<Vertex2>>>(json);
+					vertices = obj["vertices"];
+					points = obj["points"];
+				}
+				catch (Exception ex)
+				{
+					label1.Text = ex.Message;
+					return;
+				}
+
+				Vertices = vertices;
+				Points = points;
+				RunInterpolation(Vertices, Points);
+			}
+		}
+
+		private void ClickRerunButton(object sender, EventArgs e)
+		{
+			RunInterpolation(Vertices, Points);
+		}
+
+
+
+		/// <summary>
+		/// Runs the merge test.
+		/// </summary>
+		private void RunInterpolation()
+		{
+			// Randomly initialize some vertices
+			const int NUM_VERTICES = 50;
+			const int NUM_POINTS = 5;
+			Random rand = new Random();
+			Vertices = new List<Vertex2>();
+			for (int k = 0; k < NUM_VERTICES; ++k)
+				Vertices.Add(new Vertex2
+				{
+					X = rand.NextDouble(),
+					Y = rand.NextDouble()
+				});
+
+			// Randomly choose points to interpolate
+			Points = new List<Vertex2>();
+			for (int k = 0; k < NUM_POINTS; ++k)
+				Points.Add(new Vertex2
+				{
+					X = rand.NextDouble(),
+					Y = rand.NextDouble()
+				});
+
+			// Run the algorithm
+			RunInterpolation(Vertices, Points);
+		}
+
+		private void RunInterpolation(List<Vertex2> vertices, List<Vertex2> points)
+		{
+			var model = this.plot1.Model;
+			model.Annotations.Clear();
+
+			// Construct a mesh from the initial vertices
+			ConvexHullMesh<double, Vertex2> mesh = ConvexHullMesh<double, Vertex2>.Construct(vertices);
+			var initialEdges = new HashSet<Edge<double, Vertex2>>(mesh.Edges);
+			var initialTriangles = new HashSet<Triangle<double, Vertex2>>(mesh.Triangles);
+
+			// Interpolate each point
+			label2.Text = "";
+			foreach (Vertex2 point in points)
+			{
+				try
+				{
+					var crds = mesh.GetBarycentricDecomposition(point);
+					label2.Text += $"{point} => [{crds[0]}, {crds[1]}, {crds[2]}]\n";
+				}
+				catch (InvalidInterpolationException)
+				{
+					label2.Text += $"{point} => Outside of boundaries\n";
+				}
+			}
+
+			#region Display
+
+			// Draw edges
+			foreach (Edge<double, Vertex2> edge in initialEdges)
+			{
+				LineAnnotation edgeLine = new LineAnnotation
+				{
+					Type = LineAnnotationType.LinearEquation,
+					LineStyle = LineStyle.Solid,
+					Color = OxyColor.FromRgb(0x00, 0x80, 0xFF),
+					StrokeThickness = 3.0,
+					MinimumX = Math.Min(edge.Vertex1.X, edge.Vertex2.X),
+					MaximumX = Math.Max(edge.Vertex1.X, edge.Vertex2.X),
+					MinimumY = Math.Min(edge.Vertex1.Y, edge.Vertex2.Y),
+					MaximumY = Math.Max(edge.Vertex1.Y, edge.Vertex2.Y)
+				};
+				if (edgeLine.MinimumX == edge.Vertex1.X)
+				{
+					edgeLine.Slope = (edge.Vertex2.Y - edge.Vertex1.Y) / (edgeLine.MaximumX - edgeLine.MinimumX);
+					edgeLine.Intercept = edge.Vertex1.Y - edgeLine.MinimumX * edgeLine.Slope;
+				}
+				else
+				{
+					edgeLine.Slope = (edge.Vertex1.Y - edge.Vertex2.Y) / (edgeLine.MaximumX - edgeLine.MinimumX);
+					edgeLine.Intercept = edge.Vertex2.Y - edgeLine.MinimumX * edgeLine.Slope;
+				}
+				model.Annotations.Add(edgeLine);
+			}
+
+			// Draw triangles
+			foreach (Triangle<double, Vertex2> triangle in initialTriangles)
+			{
+				PolygonAnnotation triangleLines = new PolygonAnnotation
+				{
+					LineStyle = LineStyle.Dot,
+					Stroke = OxyColor.FromRgb(0x00, 0x00, 0xFF),
+					StrokeThickness = 2.0,
+					Fill = OxyColor.FromArgb(0x10, 0x00, 0x00, 0xFF)
+				};
+				triangleLines.Points.AddRange(triangle.Vertices.Select(v => new DataPoint(v.X, v.Y)));
+				model.Annotations.Add(triangleLines);
+			}
+
+			// Draw vertices
+			foreach (Vertex2 vertex in mesh.Vertices)
+			{
+				model.Annotations.Add(new PointAnnotation
+				{
+					X = vertex.X,
+					Y = vertex.Y,
+					Size = 3.0,
+					Fill = OxyColor.FromRgb(0x00, 0x00, 0x00)
+				});
+			}
+
+			// Draw interpolated points
+			foreach (Vertex2 point in points)
+			{
+				model.Annotations.Add(new PointAnnotation
+				{
+					X = point.X,
+					Y = point.Y,
+					Size = 3.0,
+					Fill = OxyColor.FromRgb(0xFF, 0x00, 0xFF)
 				});
 			}
 

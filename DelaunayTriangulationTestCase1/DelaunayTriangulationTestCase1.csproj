@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>$(DefineConstants);TESTCASE_REMOVE_MANY_ALGORITHM</DefineConstants>
+    <DefineConstants>$(DefineConstants);TESTCASE_INTERPOLATE_ALGORITHM</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>

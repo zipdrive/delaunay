@@ -34,6 +34,7 @@
 			label1 = new Label();
 			openFileDialog1 = new OpenFileDialog();
 			button4 = new Button();
+			label2 = new Label();
 			SuspendLayout();
 			// 
 			// button1
@@ -89,11 +90,21 @@
 			button4.UseVisualStyleBackColor = true;
 			button4.Click += ClickRerunButton;
 			// 
+			// label2
+			// 
+			label2.AutoSize = true;
+			label2.Location = new Point(624, 279);
+			label2.Name = "label2";
+			label2.Size = new Size(50, 20);
+			label2.TabIndex = 5;
+			label2.Text = "label2";
+			// 
 			// Form1
 			// 
 			AutoScaleDimensions = new SizeF(8F, 20F);
 			AutoScaleMode = AutoScaleMode.Font;
 			ClientSize = new Size(800, 648);
+			Controls.Add(label2);
 			Controls.Add(button4);
 			Controls.Add(label1);
 			Controls.Add(button3);
@@ -113,5 +124,6 @@
 		private Label label1;
 		private OpenFileDialog openFileDialog1;
 		private Button button4;
+		private Label label2;
 	}
 }
