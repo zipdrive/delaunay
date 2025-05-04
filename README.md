@@ -25,6 +25,15 @@ Enumerates all edges of the mesh.
 
 Enumerates all triangles of the mesh.
 
+#### Methods
+    List<(Vertex, T)> GetBarycentricDecomposition(IPoint2<T> point);
+
+Decomposes a point within the mesh boundary into a weighted sum of the surrounding vertices. Returns three vertices and the respective weights of those vertices. Throws an error if the point lies outside of the mesh boundary.
+
+    U Interpolate<U>(IPoint2<T> point, Func<Vertex, U> getValueFn);
+
+Interpolates the value of a point from the surrounding vertices. The parameter getValueFn maps each vertex to a value, which is then interpolated at the given point from the vertices of the triangle enclosing that point.
+
 ### ConvexHullMesh
 `ConvexHullMesh` objects represent a basic Delaunay triangulation with no constraints. It currently uses the Guibas and Stolfi divide-and-conquer algorithm for initial construction, which is known to not be state-of-the-art in terms of efficiency but was relatively simple to implement. One of the motivations behind this library was to include support for adding and removing vertices from the mesh without needing to recalculate the entire triangulation.
 
