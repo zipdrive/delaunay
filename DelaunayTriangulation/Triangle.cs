@@ -271,9 +271,38 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 	/// <summary>
 	/// Checks if the point exists inside the circumcircle defined by the three vertices of this triangle.
 	/// </summary>
-	/// <param name="vertex">A point to check.</param>
+	/// <param name="point">A point to check.</param>
 	/// <returns>True if the point exists inside the circumcircle. False if the point is on the boundary of the circumcircle or fully outside of the circumcircle.</returns>
-	internal bool IsInsideCircumcircle(Vertex vertex) => Vector2<T>.VectorDifference(vertex, CircumcircleCenter).LengthSquared < CircumcircleRadiusSquared;
+	internal bool IsInsideCircumcircle(IPoint2<T> point) => Vector2<T>.VectorDifference(point, CircumcircleCenter).LengthSquared < CircumcircleRadiusSquared;
+
+	/// <summary>
+	/// Checks if the point exists inside the triangle.
+	/// </summary>
+	/// <param name="point">A point to check.</param>
+	/// <param name="components">Outputs the barycentric decomposition of the point, if the triangle has greater than 0 area.</param>
+	/// <returns>True if the point exists inside or on the boundary of the triangle. False if the point lies outside of the triangle.</returns>
+	internal bool IsInsideTriangle(IPoint2<T> point, out List<(Vertex, T)> components)
+	{
+		Vertex[] vertices = Vertices.ToArray();
+		Vector2<T> side1 = Vector2<T>.VectorDifference(vertices[0], vertices[1]);
+		Vector2<T> side2 = Vector2<T>.VectorDifference(vertices[0], vertices[2]);
+		Vector2<T> v = Vector2<T>.VectorDifference(vertices[0], point);
+		T det = side1.X * side2.Y - side1.Y * side2.X;
+		if (det == T.Zero)
+		{
+			components = new List<(Vertex, T)>();
+			return false;
+		}
+		T b1 = (side2.Y * v.X - side2.X * v.Y) / det;
+		T b2 = (side1.X * v.Y - side1.Y * v.X) / det;
+		components = new List<(Vertex, T)>
+		{
+			(vertices[0], T.One - (b1 + b2)),
+			(vertices[1], b1),
+			(vertices[2], b2)
+		};
+		return (b1 + b2) >= T.Zero && (b1 + b2) <= T.One;
+	}
 
 	/// <summary>
 	/// Determines the orientation of the triangle.

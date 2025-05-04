@@ -256,5 +256,67 @@ public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where V
 		return new List<Edge<T, Vertex>>().ToImmutableList();
 	}
 
+	/// <summary>
+	/// Gets the barycentric decomposition of a point between surrounding vertices. Useful for interpolating values in a mesh.
+	/// </summary>
+	/// <param name="point">A point to decompose into surrounding vertices.</param>
+	/// <returns>A list of (Vertex, T) tuples, where the first item is a vertex of the triangle that the given point is inside of, and the second item is the weight of that vertex. The weights of all vertices will sum to 1, and the weighted average of all vertices sums to the given point.</returns>
+	/// <exception cref="InvalidInterpolationException">Thrown if the given point is not inside the boundaries of the mesh.</exception>
+	public List<(Vertex, T)> GetBarycentricDecomposition(IPoint2<T> point)
+	{
+		// Iterate over all triangles to see which triangles contain the vertex in circumcenter
+		HashSet<Triangle<T, Vertex>> clearedSuspects = new HashSet<Triangle<T, Vertex>>();
+		foreach (Triangle<T, Vertex> triangle in _Triangles)
+		{
+			if (triangle.IsInsideCircumcircle(point))
+			{
+				// Start checking nearby triangles
+				HashSet<Triangle<T, Vertex>> suspects = new HashSet<Triangle<T, Vertex>> { triangle };
+				while (suspects.Count > 0)
+				{
+					Triangle<T, Vertex> suspectedTriangle = suspects.First();
+					suspects.Remove(suspectedTriangle);
+					if (clearedSuspects.Contains(suspectedTriangle))
+						continue;
+					clearedSuspects.Add(suspectedTriangle);
+
+					if (suspectedTriangle.IsInsideCircumcircle(point))
+					{
+						if (suspectedTriangle.IsInsideTriangle(point, out List<(Vertex, T)> components))
+						{
+							return components;
+						}
+						else
+						{
+							suspects.UnionWith(suspectedTriangle.AdjacentTriangles);
+						}
+					}
+				}
+				break;
+			}
+			clearedSuspects.Add(triangle);
+		}
+		throw new InvalidInterpolationException("Point does not exist inside the mesh.");
+	}
+
+	/// <summary>
+	/// Interpolates the value of a point from the surrounding vertices.
+	/// </summary>
+	/// <typeparam name="U">The numeric type of value to be returned.</typeparam>
+	/// <param name="point">The point at which to interpolate the value.</param>
+	/// <param name="getValueFn">A value mapping each vertex to a function.</param>
+	/// <returns>The values returned by getValueFn, interpolated at the given point.</returns>
+	/// <exception cref="InvalidInterpolationException">Thrown if the point does not exist within the boundary of the mesh.</exception>
+	public U Interpolate<U>(IPoint2<T> point, Func<Vertex, U> getValueFn) where U : IFloatingPointIeee754<U>
+	{
+		List<(Vertex, T)> components = GetBarycentricDecomposition(point);
+		U result = U.Zero;
+		foreach ((Vertex, T) component in components)
+		{
+			result += getValueFn(component.Item1) * U.CreateChecked(component.Item2);
+		}
+		return result;
+	}
+
 	#endregion Methods
 }
