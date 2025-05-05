@@ -265,36 +265,12 @@ public abstract class Mesh<T, Vertex> where T : IFloatingPointIeee754<T> where V
 	public List<(Vertex, T)> GetBarycentricDecomposition(IPoint2<T> point)
 	{
 		// Iterate over all triangles to see which triangles contain the vertex in circumcenter
-		HashSet<Triangle<T, Vertex>> clearedSuspects = new HashSet<Triangle<T, Vertex>>();
 		foreach (Triangle<T, Vertex> triangle in _Triangles)
 		{
-			if (triangle.IsInsideCircumcircle(point))
+			if (triangle.IsInsideTriangle(point, out List<(Vertex, T)> components))
 			{
-				// Start checking nearby triangles
-				HashSet<Triangle<T, Vertex>> suspects = new HashSet<Triangle<T, Vertex>> { triangle };
-				while (suspects.Count > 0)
-				{
-					Triangle<T, Vertex> suspectedTriangle = suspects.First();
-					suspects.Remove(suspectedTriangle);
-					if (clearedSuspects.Contains(suspectedTriangle))
-						continue;
-					clearedSuspects.Add(suspectedTriangle);
-
-					if (suspectedTriangle.IsInsideCircumcircle(point))
-					{
-						if (suspectedTriangle.IsInsideTriangle(point, out List<(Vertex, T)> components))
-						{
-							return components;
-						}
-						else
-						{
-							suspects.UnionWith(suspectedTriangle.AdjacentTriangles);
-						}
-					}
-				}
-				break;
+				return components;
 			}
-			clearedSuspects.Add(triangle);
 		}
 		throw new InvalidInterpolationException("Point does not exist inside the mesh.");
 	}
