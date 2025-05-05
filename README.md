@@ -4,6 +4,8 @@ This is a library for performing Delaunay triangulations. The main motivations o
 2. Provide the ability to store additional data about vertices in a way that is easy to retrieve.
 3. Provide support for easily adding and removing vertices from a triangulation after initial construction.
 
+This library is currently not well-optimized for large numbers of vertices, but is instead best suited for low numbers of vertices that change frequently.
+
 The primary interface for interacting with this library is the `ConvexHullMesh` class, which represents a Delaunay triangulation of vertices.
 
 ## Documentation
