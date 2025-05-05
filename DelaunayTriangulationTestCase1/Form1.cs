@@ -685,21 +685,57 @@ namespace DelaunayTriangulationTestCase1
 			const int NUM_VERTICES = 50;
 			const int NUM_POINTS = 5;
 			Random rand = new Random();
-			Vertices = new List<Vertex2>();
-			for (int k = 0; k < NUM_VERTICES; ++k)
+			Vertices = new List<Vertex2>
+			{
+				new Vertex2
+				{
+					X = 0.0,
+					Y = 0.0
+				},
+				new Vertex2
+				{
+					X = 1.0,
+					Y = 1.0
+				},
+				new Vertex2
+				{
+					X = -1.0,
+					Y = 1.0
+				},
+				new Vertex2
+				{
+					X = -1.0,
+					Y = -1.0
+				},
+				new Vertex2
+				{
+					X = 1.0,
+					Y = -1.0
+				},
+			};
+			/*
+			for (int k = 1; k < NUM_VERTICES; ++k)
 				Vertices.Add(new Vertex2
 				{
-					X = rand.NextDouble(),
-					Y = rand.NextDouble()
+					X = 2.0 * rand.NextDouble() - 1.0,
+					Y = 2.0 * rand.NextDouble() - 1.0
 				});
+			*/
 
 			// Randomly choose points to interpolate
-			Points = new List<Vertex2>();
-			for (int k = 0; k < NUM_POINTS; ++k)
+			Points = new List<Vertex2>
+			{
+				new Vertex2
+				{
+					X = 0.0,
+					Y = 0.0
+				}
+			};
+			for (int k = 1; k < NUM_POINTS; ++k)
 				Points.Add(new Vertex2
 				{
-					X = rand.NextDouble(),
-					Y = rand.NextDouble()
+					X = 2.0 * rand.NextDouble() - 1.0,
+					Y = 2.0 * rand.NextDouble() - 1.0
 				});
 
 			// Run the algorithm
