@@ -301,7 +301,7 @@ public class Triangle<T, Vertex> where T : IFloatingPointIeee754<T> where Vertex
 			(vertices[1], b1),
 			(vertices[2], b2)
 		};
-		return (b1 + b2) >= T.Zero && (b1 + b2) <= T.One;
+		return b1 >= T.Zero && b2 >= T.Zero && (b1 + b2) <= T.One;
 	}
 
 	/// <summary>

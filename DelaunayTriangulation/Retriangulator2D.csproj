@@ -22,8 +22,8 @@ The primary application of this library as opposed to similar libraries for tria
     <NeutralLanguage>en</NeutralLanguage>
     <PackageId>Retriangulator2D</PackageId>
     <Copyright></Copyright>
-    <Version>1.3.2</Version>
-    <PackageReleaseNotes>Fixed a bug with the interpolation functions that occasionally caused points on the boundary of a triangle in the mesh to not be perceived as being inside the mesh.</PackageReleaseNotes>
+    <Version>1.3.3</Version>
+    <PackageReleaseNotes>Fixed a bug with the interpolation functions that sometimes caused points to register as belonging to a different triangle than they should belong to.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
